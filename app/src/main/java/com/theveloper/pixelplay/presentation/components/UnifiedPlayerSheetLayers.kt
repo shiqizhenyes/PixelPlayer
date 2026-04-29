@@ -49,7 +49,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
     albumColorScheme: ColorScheme,
     bottomSheetOpenFraction: Float,
     fullPlayerVisualState: FullPlayerVisualState,
-    containerHeight: Dp,
+    //containerHeight: Dp,
     currentQueueSourceName: String,
     currentSheetContentState: PlayerSheetState,
     carouselStyle: String,
@@ -137,7 +137,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .requiredHeight(containerHeight)
+                        .fillMaxSize()
+                        //.requiredHeight(containerHeight)
                         .graphicsLayer {
                             // Read from FullPlayerVisualState lazy getters in the draw phase;
                             // these read Animatable.value internally → re-draw only, no recomposition.

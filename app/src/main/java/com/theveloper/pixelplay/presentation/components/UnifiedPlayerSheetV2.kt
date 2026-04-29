@@ -672,7 +672,7 @@ fun UnifiedPlayerSheetV2(
                                 albumColorScheme = albumColorScheme,
                                 bottomSheetOpenFraction = bottomSheetOpenFraction,
                                 fullPlayerVisualState = fullPlayerVisualState,
-                                containerHeight = containerHeight,
+                                //containerHeight = containerHeight,
                                 currentQueueSourceName = currentQueueSourceName,
                                 currentSheetContentState = currentSheetContentState,
                                 carouselStyle = carouselStyle,
