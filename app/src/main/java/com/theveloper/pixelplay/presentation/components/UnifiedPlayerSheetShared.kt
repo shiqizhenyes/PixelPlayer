@@ -31,6 +31,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -69,10 +71,14 @@ internal fun MiniPlayerContentInternal(
     onPrevious: () -> Unit,
     cornerRadiusAlb: Dp,
     onNext: () -> Unit,
+    marqueeActiveProvider: () -> Boolean = { true },
     modifier: Modifier = Modifier
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val controlsEnabled = !isCastConnecting && !isPreparingPlayback
+    val marqueeActive by remember(marqueeActiveProvider) {
+        derivedStateOf { marqueeActiveProvider() }
+    }
 
     val previousInteraction = remember { MutableInteractionSource() }
     val playPauseInteraction = remember { MutableInteractionSource() }
@@ -136,12 +142,14 @@ internal fun MiniPlayerContentInternal(
                     else -> song.title
                 },
                 style = titleStyle,
-                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer
+                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
+                marqueeActive = marqueeActive
             )
             AutoScrollingText(
                 text = if (isPreparingPlayback) "Loading audio…" else song.displayArtist,
                 style = artistStyle,
-                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer
+                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
+                marqueeActive = marqueeActive
             )
         }
         Spacer(modifier = Modifier.width(8.dp))

@@ -94,6 +94,9 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                             (overallSheetTopCornerRadiusProvider().value * 0.5f).dp
                         }
                     }
+                    val miniMarqueeActiveProvider = remember(playerContentExpansionFraction) {
+                        { playerContentExpansionFraction.value <= 0.02f }
+                    }
                     MiniPlayerContentInternal(
                         song = currentSongNonNull,
                         cornerRadiusAlb = miniAlbumCornerRadius,
@@ -103,6 +106,7 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         onPlayPause = { playerViewModel.playPause() },
                         onPrevious = { playerViewModel.previousSong() },
                         onNext = { playerViewModel.nextSong() },
+                        marqueeActiveProvider = miniMarqueeActiveProvider,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

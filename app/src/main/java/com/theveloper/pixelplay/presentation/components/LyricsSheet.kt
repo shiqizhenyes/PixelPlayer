@@ -11,7 +11,6 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.layout.ContentScale
 import com.theveloper.pixelplay.presentation.components.SmartImage
-import com.theveloper.pixelplay.presentation.components.AutoScrollingText
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat

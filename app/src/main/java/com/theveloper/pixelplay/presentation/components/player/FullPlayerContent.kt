@@ -2152,12 +2152,7 @@ private fun PlayerSongInfo(
                 translationY = (1f - fraction) * 24f
             }
     ) {
-        // We pass 1f to AutoScrollingTextOnDemand because the alpha/translation is now handled by the parent Column graphicsLayer
-        // and we want it "fully rendered" but hidden/moved by the layer.
-        // Actually, AutoScrollingTextOnDemand uses expansionFraction to start scrolling only when fully expanded?
-        // Let's check AutoScrollingTextOnDemand. Assuming it uses it for scrolling trigger.
-        // If we want to avoid recomposition, we might need to pass the provider or just 1f if scrolling logic handles itself.
-        // For now, let's pass the current value from provider for logic correctness, but ideally this component should be optimized too.
+        // Keep marquee work paused until the player is settled open.
         AutoScrollingTextOnDemand(
             title,
             titleStyle,

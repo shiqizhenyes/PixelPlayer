@@ -1,11 +1,12 @@
 package com.theveloper.pixelplay.presentation.components
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.MarqueeSpacing
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,18 +18,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.SubcomposeLayout
-import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.Constraints
+
+private const val MarqueeInitialDelayMillis = 1_500
+private const val MarqueeFadeAnimationMillis = 180
+private val MarqueeGap = 6.dp
 
 @Composable
 fun AutoScrollingTextOnDemand(
@@ -38,29 +40,18 @@ fun AutoScrollingTextOnDemand(
     expansionFractionProvider: () -> Float,
     modifier: Modifier = Modifier
 ) {
-    var overflow by remember { mutableStateOf(false) }
-    val canStart by remember { derivedStateOf { expansionFractionProvider() > 0.99f && overflow } }
-
-
-// Usamos un Text "medidor" sólo la primera composición para detectar overflow.
-    if (!canStart) {
-        Text(
-            text = text,
-            style = style,
-            maxLines = 1,
-            softWrap = false,
-            onTextLayout = { res: TextLayoutResult -> overflow = res.hasVisualOverflow },
-            modifier = modifier
-        )
-    } else {
-        AutoScrollingText(
-            text = text,
-            style = style,
-            textAlign = TextAlign.Start,
-            gradientEdgeColor = gradientEdgeColor,
-            modifier = modifier
-        )
+    val marqueeActive by remember(expansionFractionProvider) {
+        derivedStateOf { expansionFractionProvider() > 0.99f }
     }
+
+    AutoScrollingText(
+        text = text,
+        style = style,
+        textAlign = TextAlign.Start,
+        gradientEdgeColor = gradientEdgeColor,
+        marqueeActive = marqueeActive,
+        modifier = modifier
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -71,88 +62,105 @@ fun AutoScrollingText(
     style: TextStyle,
     textAlign: TextAlign? = null,
     gradientEdgeColor: Color,
-    gradientWidth: Dp = 24.dp
+    gradientWidth: Dp = 24.dp,
+    marqueeActive: Boolean = true
 ) {
-    SubcomposeLayout(modifier = modifier.clipToBounds()) { constraints ->
-        val textPlaceable = subcompose("text") {
-            Text(text = text, style = style, maxLines = 1)
-        }[0].measure(constraints.copy(maxWidth = Int.MAX_VALUE))
+    var hasOverflow by remember(text, style) { mutableStateOf(false) }
+    val shouldScroll = marqueeActive && hasOverflow
 
-        val isOverflowing = textPlaceable.width > constraints.maxWidth
-
-        val content = @Composable {
-            if (isOverflowing) {
-                val initialDelayMillis = 1500
-                val fadeAnimationDuration = 500
-
-                var isScrolling by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    isScrolling = false // Ensure initial state
-                    kotlinx.coroutines.delay(initialDelayMillis.toLong())
-                    isScrolling = true
-                }
-
-                val animatedLeftGradientStartColor by animateColorAsState(
-                    targetValue = if (isScrolling) Color.Transparent else gradientEdgeColor,
-                    animationSpec = tween(durationMillis = fadeAnimationDuration),
-                    label = "LeftGradientStartColor"
-                )
-
-                Box(
-                    modifier = Modifier
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                        .drawWithContent {
-                            drawContent()
-                            val gradientWidthPx = gradientWidth.toPx()
-
-                            // Left fade-in: Animates its color from opaque to transparent
-                            drawRect(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(animatedLeftGradientStartColor, gradientEdgeColor),
-                                    startX = 0f,
-                                    endX = gradientWidthPx
-                                ),
-                                blendMode = BlendMode.DstIn
-                            )
-                            // Right fade-out: Always visible for overflow
-                            drawRect(
-                                brush = Brush.horizontalGradient(
-                                    colors = listOf(gradientEdgeColor, Color.Transparent),
-                                    startX = size.width - gradientWidthPx,
-                                    endX = size.width
-                                ),
-                                blendMode = BlendMode.DstIn
-                            )
-                        }
-                ) {
-                    Text(
-                        text = text,
-                        style = style,
-                        textAlign = textAlign,
-                        maxLines = 1,
-                        modifier = Modifier.basicMarquee(
-                            iterations = Int.MAX_VALUE,
-                            spacing = MarqueeSpacing(gradientWidth + 6.dp),
-                            velocity = 25.dp,
-                            initialDelayMillis = initialDelayMillis
-                        )
-                    )
-                }
-            } else {
-                Text(
-                    text = text,
-                    style = style,
-                    textAlign = textAlign,
-                    maxLines = 1,
-                )
-            }
-        }
-
-        val contentPlaceable = subcompose("content", content)[0].measure(constraints)
-        val targetWidth = constraints.maxWidth.takeIf { it != Constraints.Infinity } ?: contentPlaceable.width
-
-        layout(targetWidth, contentPlaceable.height) {
-            contentPlaceable.place(0, 0)
+    var showStartFade by remember(text) { mutableStateOf(false) }
+    LaunchedEffect(text, shouldScroll) {
+        showStartFade = false
+        if (shouldScroll) {
+            kotlinx.coroutines.delay(MarqueeInitialDelayMillis.toLong())
+            showStartFade = true
         }
     }
+
+    val startFadeAlpha by animateFloatAsState(
+        targetValue = if (showStartFade) 1f else 0f,
+        animationSpec = tween(durationMillis = MarqueeFadeAnimationMillis),
+        label = "MarqueeStartFadeAlpha"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clipToBounds()
+            .then(
+                if (shouldScroll) {
+                    Modifier.marqueeEdgeFade(
+                        edgeColor = gradientEdgeColor,
+                        edgeWidth = gradientWidth,
+                        startFadeAlpha = startFadeAlpha
+                    )
+                } else {
+                    Modifier
+                }
+            )
+    ) {
+        val textModifier = if (shouldScroll) {
+            Modifier.basicMarquee(
+                iterations = Int.MAX_VALUE,
+                spacing = MarqueeSpacing(gradientWidth + MarqueeGap),
+                velocity = 25.dp,
+                initialDelayMillis = MarqueeInitialDelayMillis
+            )
+        } else {
+            Modifier
+        }
+
+        Text(
+            text = text,
+            style = style,
+            textAlign = textAlign,
+            maxLines = 1,
+            softWrap = false,
+            overflow = if (shouldScroll) TextOverflow.Clip else TextOverflow.Ellipsis,
+            onTextLayout = { result ->
+                if (!shouldScroll) {
+                    hasOverflow = result.hasVisualOverflow
+                }
+            },
+            modifier = textModifier
+        )
+    }
+}
+
+private fun Modifier.marqueeEdgeFade(
+    edgeColor: Color,
+    edgeWidth: Dp,
+    startFadeAlpha: Float
+): Modifier = drawWithContent {
+    drawContent()
+
+    val fadeWidth = minOf(edgeWidth.toPx(), size.width / 2f)
+    if (fadeWidth <= 0f) return@drawWithContent
+
+    if (startFadeAlpha > 0f) {
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(
+                    edgeColor.copy(alpha = edgeColor.alpha * startFadeAlpha),
+                    edgeColor.copy(alpha = 0f)
+                ),
+                startX = 0f,
+                endX = fadeWidth
+            ),
+            size = Size(fadeWidth, size.height)
+        )
+    }
+
+    drawRect(
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                edgeColor.copy(alpha = 0f),
+                edgeColor
+            ),
+            startX = size.width - fadeWidth,
+            endX = size.width
+        ),
+        topLeft = Offset(size.width - fadeWidth, 0f),
+        size = Size(fadeWidth, size.height)
+    )
 }
