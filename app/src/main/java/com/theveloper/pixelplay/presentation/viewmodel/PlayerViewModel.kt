@@ -1435,8 +1435,20 @@ class PlayerViewModel @Inject constructor(
         val action: () -> Unit = {
             Timber.d("[TileDebug] action() invoked")
             viewModelScope.launch {
-                var songs = musicRepository.getRandomSongs(limit = 500)
-                Timber.d("[TileDebug] Repository returned ${songs.size} random songs immediately")
+                // Prefer the in-memory library snapshot if it's already loaded
+                // (warm start, tile launched from the lock screen / shortcut
+                // after the app has been used at least once). Falling back to
+                // a bounded repository sample only on cold start avoids an
+                // unnecessary DB round-trip in the warm path.
+                val cachedSongs = libraryStateHolder.allSongs.value
+                var songs: List<Song> = if (cachedSongs.isNotEmpty()) {
+                    Timber.d("[TileDebug] Using ${cachedSongs.size} cached songs from library snapshot")
+                    cachedSongs
+                } else {
+                    val sample = musicRepository.getRandomSongs(limit = 500)
+                    Timber.d("[TileDebug] Repository returned ${sample.size} random songs immediately")
+                    sample
+                }
 
                 if (songs.isEmpty()) {
                     // Cold start or stale DB state: trigger a sync and retry the bounded query.

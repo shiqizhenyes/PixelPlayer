@@ -29,6 +29,20 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest
+
+      - name: Upload unit test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: PixelPlay-phone-debug-test-report
+          path: |
+            app/build/reports/tests/testDebugUnitTest
+            app/build/test-results/testDebugUnitTest
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Build Phone debug APK
         run: ./gradlew :app:assembleDebug -Ppixelplay.enableAbiSplits=true
 

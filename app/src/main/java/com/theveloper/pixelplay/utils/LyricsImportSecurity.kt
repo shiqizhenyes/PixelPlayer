@@ -180,6 +180,16 @@ object LyricsImportSecurity {
         for (normalized in normalizationCandidates(decoded, format)) {
             val validation = validateImportedLrcContent(normalized)
             if (validation is LyricsImportValidationResult.Valid) {
+                // .lrc documents must carry at least one synced line. Plain
+                // text that parses as unsynced lyrics does not satisfy the
+                // LRC contract; keep trying sibling normalization candidates
+                // (e.g., a TTML-to-enhanced-LRC fallback) that may produce
+                // a synced result.
+                if (format == LyricsDocumentFormat.LRC &&
+                    validation.value.parsedLyrics.synced.isNullOrEmpty()
+                ) {
+                    continue
+                }
                 return validation
             }
         }

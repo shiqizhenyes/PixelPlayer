@@ -181,9 +181,12 @@ class LyricsStateHolder @Inject constructor(
             _searchUiState.value = LyricsSearchUiState.Loading
 
             if (!forcePickResults) {
-                val storedLyrics = withContext(Dispatchers.IO) {
-                    musicRepository.getStoredLyrics(song)
-                }
+                // getStoredLyrics is a suspend function backed by the
+                // LyricsRepository -> Room DAO chain, which already runs on
+                // Room's IO executor. Wrapping it in withContext(Dispatchers.IO)
+                // here is redundant and traps the test scope on a real IO
+                // thread, breaking unit tests that drive the scope manually.
+                val storedLyrics = musicRepository.getStoredLyrics(song)
                 if (storedLyrics != null) {
                     val (lyrics, rawLyrics) = storedLyrics
                     _searchUiState.value = LyricsSearchUiState.Success(lyrics)
