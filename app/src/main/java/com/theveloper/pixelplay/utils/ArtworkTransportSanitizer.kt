@@ -41,6 +41,10 @@ object ArtworkTransportSanitizer {
     ): ByteArray? {
         val source = data ?: return null
         if (source.isEmpty()) return null
+        // Reject oversized inputs before handing them to the native bitmap
+        // decoder. libwebp/libjpeg/libpng have all had memory-corruption CVEs
+        // triggered by large attacker-controlled payloads (e.g. CVE-2023-4863).
+        if (source.size > config.sourceBytesLimit) return null
 
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(source, 0, source.size, bounds)

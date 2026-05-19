@@ -21,6 +21,7 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,7 +46,8 @@ private data class GenreSeed(
 @Singleton
 class LibraryStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    @com.theveloper.pixelplay.di.AppScope private val appScope: CoroutineScope,
 ) {
 
     // --- State ---
@@ -188,37 +190,43 @@ class LibraryStateHolder @Inject constructor(
         .flowOn(Dispatchers.Default)
 
 
-    // Internal state
-    private var scope: CoroutineScope? = null
+    // @AppScope so library observers (and their underlying Room flow
+    // collectors) survive ViewModel teardown. The Singleton-lifecycle
+    // mismatch flagged in CODEBASE_REVIEW.md is now removed.
+    private val scope: CoroutineScope get() = appScope
 
     // --- Initialization ---
 
-    fun initialize(scope: CoroutineScope) {
-        this.scope = scope
-        // Initial load of sort preferences
-        scope.launch {
-            val songSortKey = userPreferencesRepository.songsSortOptionFlow.first()
-            _currentSongSortOption.value = SortOption.SONGS.find { it.storageKey == songSortKey } ?: SortOption.SongDefaultOrder
+    fun initialize(@Suppress("UNUSED_PARAMETER") scope: CoroutineScope) {
+        // Initial load of sort preferences. Six independent DataStore cold-flow
+        // first() reads run in parallel via async/awaitAll instead of stacking
+        // sequentially on the Main dispatcher.
+        this.scope.launch {
+            val songSortKeyDeferred = async { userPreferencesRepository.songsSortOptionFlow.first() }
+            val albumSortKeyDeferred = async { userPreferencesRepository.albumsSortOptionFlow.first() }
+            val artistSortKeyDeferred = async { userPreferencesRepository.artistsSortOptionFlow.first() }
+            val folderSortKeyDeferred = async { userPreferencesRepository.foldersSortOptionFlow.first() }
+            val likedSortKeyDeferred = async { userPreferencesRepository.likedSongsSortOptionFlow.first() }
+            val storageFilterDeferred = async { userPreferencesRepository.lastStorageFilterFlow.first() }
 
-            val albumSortKey = userPreferencesRepository.albumsSortOptionFlow.first()
-            _currentAlbumSortOption.value = SortOption.ALBUMS.find { it.storageKey == albumSortKey } ?: SortOption.AlbumTitleAZ
-
-            val artistSortKey = userPreferencesRepository.artistsSortOptionFlow.first()
-            _currentArtistSortOption.value = SortOption.ARTISTS.find { it.storageKey == artistSortKey } ?: SortOption.ArtistNameAZ
-
-            val folderSortKey = userPreferencesRepository.foldersSortOptionFlow.first()
-            _currentFolderSortOption.value = SortOption.FOLDERS.find { it.storageKey == folderSortKey } ?: SortOption.FolderNameAZ
-
-            val likedSortKey = userPreferencesRepository.likedSongsSortOptionFlow.first()
-            _currentFavoriteSortOption.value = SortOption.LIKED.find { it.storageKey == likedSortKey } ?: SortOption.LikedSongDateLiked
-
-            // Restore last storage filter (All / Cloud / Local)
-            _currentStorageFilter.value = userPreferencesRepository.lastStorageFilterFlow.first()
+            _currentSongSortOption.value =
+                SortOption.SONGS.find { it.storageKey == songSortKeyDeferred.await() } ?: SortOption.SongDefaultOrder
+            _currentAlbumSortOption.value =
+                SortOption.ALBUMS.find { it.storageKey == albumSortKeyDeferred.await() } ?: SortOption.AlbumTitleAZ
+            _currentArtistSortOption.value =
+                SortOption.ARTISTS.find { it.storageKey == artistSortKeyDeferred.await() } ?: SortOption.ArtistNameAZ
+            _currentFolderSortOption.value =
+                SortOption.FOLDERS.find { it.storageKey == folderSortKeyDeferred.await() } ?: SortOption.FolderNameAZ
+            _currentFavoriteSortOption.value =
+                SortOption.LIKED.find { it.storageKey == likedSortKeyDeferred.await() } ?: SortOption.LikedSongDateLiked
+            _currentStorageFilter.value = storageFilterDeferred.await()
         }
     }
 
     fun onCleared() {
-        scope = null
+        // scope is @AppScope; nothing to detach here. Per-session jobs
+        // (songsJob, albumsJob, artistsJob, foldersJob) are still cancelled
+        // explicitly when storage filter / library invalidations happen.
     }
 
     // --- Data Loading ---
@@ -248,7 +256,7 @@ class LibraryStateHolder @Inject constructor(
         Log.d("LibraryStateHolder", "startObservingLibraryData called.")
         needsReloadAfterTrim = false
 
-        songsJob = scope?.launch {
+        songsJob = scope.launch {
             _isLoadingLibrary.value = true
             musicRepository.getAudioFiles().conflate().collect { songs ->
                 // Process heavy list conversions on Default dispatcher to avoid blocking UI
@@ -266,7 +274,7 @@ class LibraryStateHolder @Inject constructor(
             }
         }
 
-        albumsJob = scope?.launch {
+        albumsJob = scope.launch {
             _isLoadingCategories.value = true
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             kotlinx.coroutines.flow.combine(
@@ -285,7 +293,7 @@ class LibraryStateHolder @Inject constructor(
             }
         }
 
-        artistsJob = scope?.launch {
+        artistsJob = scope.launch {
             _isLoadingCategories.value = true
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             effectiveStorageFilter.flatMapLatest { filter ->
@@ -299,7 +307,7 @@ class LibraryStateHolder @Inject constructor(
             }
         }
 
-        foldersJob = scope?.launch {
+        foldersJob = scope.launch {
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             effectiveStorageFilter.flatMapLatest { filter ->
                 musicRepository.getMusicFolders(effectiveFoldersStorageFilter(filter))
@@ -351,7 +359,7 @@ class LibraryStateHolder @Inject constructor(
     // --- Sorting ---
 
     fun sortSongs(sortOption: SortOption, persist: Boolean = true) {
-        scope?.launch {
+        scope.launch {
             if (persist && _currentSongSortOption.value.storageKey == sortOption.storageKey) {
                 return@launch
             }
@@ -364,7 +372,7 @@ class LibraryStateHolder @Inject constructor(
     }
 
     fun sortAlbums(sortOption: SortOption, persist: Boolean = true) {
-        scope?.launch {
+        scope.launch {
             if (persist && _currentAlbumSortOption.value.storageKey == sortOption.storageKey) {
                 return@launch
             }
@@ -381,7 +389,7 @@ class LibraryStateHolder @Inject constructor(
     }
 
     fun sortArtists(sortOption: SortOption, persist: Boolean = true) {
-        scope?.launch {
+        scope.launch {
             if (persist && _currentArtistSortOption.value.storageKey == sortOption.storageKey) {
                 return@launch
             }
@@ -398,7 +406,7 @@ class LibraryStateHolder @Inject constructor(
     }
 
     fun sortFolders(sortOption: SortOption, persist: Boolean = true) {
-        scope?.launch {
+        scope.launch {
             if (persist && _currentFolderSortOption.value.storageKey == sortOption.storageKey) {
                 return@launch
             }
@@ -524,7 +532,7 @@ class LibraryStateHolder @Inject constructor(
     }
 
     fun sortFavoriteSongs(sortOption: SortOption, persist: Boolean = true) {
-        scope?.launch {
+        scope.launch {
             if (persist && _currentFavoriteSortOption.value.storageKey == sortOption.storageKey) {
                 return@launch
             }
@@ -554,7 +562,7 @@ class LibraryStateHolder @Inject constructor(
 
     fun setStorageFilter(filter: com.theveloper.pixelplay.data.model.StorageFilter) {
         _currentStorageFilter.value = filter
-        scope?.launch {
+        scope.launch {
             userPreferencesRepository.saveLastStorageFilter(filter)
         }
     }
@@ -598,7 +606,8 @@ class LibraryStateHolder @Inject constructor(
     }
 
     fun restoreAfterTrimIfNeeded() {
-        if (!needsReloadAfterTrim || scope == null) return
+        // scope is @AppScope (always alive); only check the trim flag.
+        if (!needsReloadAfterTrim) return
         startObservingLibraryData()
     }
 }

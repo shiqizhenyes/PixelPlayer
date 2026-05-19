@@ -1,6 +1,8 @@
 package com.theveloper.pixelplay.presentation.components
 
 import com.theveloper.pixelplay.presentation.navigation.navigateSafely
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -421,9 +423,13 @@ fun PlaylistItem(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            val coverSongs = remember(playlistSongs) {
+                playlistSongs?.toPersistentList()
+                    ?: persistentListOf<Song>()
+            }
             PlaylistCover(
                 playlist = playlist,
-                playlistSongs = playlistSongs ?: emptyList(),
+                playlistSongs = coverSongs,
                 size = 48.dp
             )
 

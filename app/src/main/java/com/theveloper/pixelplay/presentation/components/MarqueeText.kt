@@ -85,8 +85,11 @@ fun AutoScrollingText(
                 val initialDelayMillis = 1500
                 val fadeAnimationDuration = 500
 
-                var isScrolling by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
+                // Key on text so the initial-delay timer restarts when the
+                // displayed string changes — otherwise a track-skip keeps an
+                // already-elapsed timer running for the new title.
+                var isScrolling by remember(text) { mutableStateOf(false) }
+                LaunchedEffect(text) {
                     isScrolling = false // Ensure initial state
                     kotlinx.coroutines.delay(initialDelayMillis.toLong())
                     isScrolling = true

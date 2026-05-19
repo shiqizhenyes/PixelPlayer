@@ -25,8 +25,23 @@ object AlbumArtBitmapCache {
         }
     }
 
+    /**
+     * Hash only the first 4 KiB of the byte array. byteArray.contentHashCode()
+     * was O(n) on every widget render — a 100 KiB image cost 100k ops per
+     * render — and a prefix hash is just as distinguishing in practice for
+     * album artwork (different images share their first 4 KiB only on
+     * intentional collisions).
+     */
     fun getKey(byteArray: ByteArray): String {
-        return byteArray.contentHashCode().toString()
+        val prefixLength = byteArray.size.coerceAtMost(4096)
+        var hash = 1
+        for (i in 0 until prefixLength) {
+            hash = 31 * hash + byteArray[i].toInt()
+        }
+        // Mix the total size in so different-length payloads with same prefix
+        // map to different cache buckets.
+        hash = 31 * hash + byteArray.size
+        return hash.toString()
     }
 }
 

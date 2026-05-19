@@ -37,7 +37,9 @@ data class PlayerUiState(
     val folderSource: FolderSource = FolderSource.INTERNAL,
     val folderSourceRootPath: String = "",
     val isSdCardAvailable: Boolean = false,
-    val lavaLampColors: ImmutableList<androidx.compose.ui.graphics.Color> = persistentListOf(),
+    // lavaLampColors removed: this field was never written by PlayerViewModel.
+    // The lava-lamp gradient sources from ThemeStateHolder.lavaLampColors,
+    // which is the authoritative flow.
     val undoBarVisibleDuration: Long = 4000L,
     val isFolderFilterActive: Boolean = false,
     val isFoldersPlaylistView: Boolean = false,

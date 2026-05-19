@@ -290,7 +290,12 @@ private fun EditSongContent(
 
     val density = LocalDensity.current
     val imeInsets = WindowInsets.ime
-    val isKeyboardVisible by remember { derivedStateOf { imeInsets.getBottom(density) > 0 } }
+    // Key on density so a display configuration change (e.g. external monitor)
+    // invalidates the cached derivation rather than evaluating IME bottom
+    // against a stale Density.
+    val isKeyboardVisible by remember(density) {
+        derivedStateOf { imeInsets.getBottom(density) > 0 }
+    }
 
     Scaffold(
         topBar = {

@@ -94,6 +94,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -169,14 +172,6 @@ private data class SortOptionsSnapshot(
     val artistSort: SortOption,
     val folderSort: SortOption,
     val favoriteSort: SortOption,
-)
-
-private data class AiUiSnapshot(
-    val showAiPlaylistSheet: Boolean,
-    val isGeneratingAiPlaylist: Boolean,
-    val aiStatus: String?,
-    val aiError: String?,
-    val isGeneratingAiMetadata: Boolean,
 )
 
 private data class PreparedPlaybackQueue(
@@ -408,15 +403,19 @@ class PlayerViewModel @Inject constructor(
             // 1. Invalidate Coil cache for the BASE uri (without params)
             // This ensures next time we load it without params, it's fresh too.
             val baseUri = currentUriClean
-            
-            // Remove from Memory Cache
-            context.imageLoader.memoryCache?.keys?.forEach { key ->
+            // Hoist the imageLoader lookup once. Snapshot keys to a Set first
+            // — Coil's memoryCache.keys is mutated by remove() and historically
+            // wasn't safe to mutate while iterating directly.
+            val imageLoader = context.imageLoader
+            val memoryCache = imageLoader.memoryCache
+            val keySnapshot = memoryCache?.keys?.toSet().orEmpty()
+            keySnapshot.forEach { key ->
                 if (key.toString().contains(baseUri)) {
-                    context.imageLoader.memoryCache?.remove(key)
+                    memoryCache?.remove(key)
                 }
             }
             // Remove from Disk Cache
-            context.imageLoader.diskCache?.remove(baseUri)
+            imageLoader.diskCache?.remove(baseUri)
 
             // 2. Extract Colors (using base URI)
             themeStateHolder.extractAndGenerateColorScheme(updatedArtUri.toUri(), updatedArtUri, isPreload = false)
@@ -522,50 +521,13 @@ class PlayerViewModel @Inject constructor(
             initialValue = CarouselStyle.NO_PEEK
         )
 
-    val hasActiveAiProviderApiKey: StateFlow<Boolean> = combine(
-        aiPreferencesRepository.aiProvider,
-        aiPreferencesRepository.geminiApiKey,
-        aiPreferencesRepository.deepseekApiKey,
-        aiPreferencesRepository.groqApiKey,
-        aiPreferencesRepository.mistralApiKey,
-        aiPreferencesRepository.nvidiaApiKey,
-        aiPreferencesRepository.kimiApiKey,
-        aiPreferencesRepository.glmApiKey,
-        aiPreferencesRepository.openaiApiKey
-    ) { values ->
-        val provider = values[0]
-        val gemini = values[1]
-        val deepseek = values[2]
-        val groq = values[3]
-        val mistral = values[4]
-        val nvidia = values[5]
-        val kimi = values[6]
-        val glm = values[7]
-        val openai = values[8]
-        when (provider) {
-            "DEEPSEEK" -> deepseek.isNotBlank()
-            "GROQ" -> groq.isNotBlank()
-            "MISTRAL" -> mistral.isNotBlank()
-            "NVIDIA" -> nvidia.isNotBlank()
-            "KIMI" -> kimi.isNotBlank()
-            "GLM" -> glm.isNotBlank()
-            "OPENAI" -> openai.isNotBlank()
-            else -> gemini.isNotBlank()
-        }
-    }.distinctUntilChanged()
-        .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = false
-    )
+    // The 9-arg combine over per-provider API-key flows moved into
+    // AiStateHolder.hasActiveAiProviderApiKey; this is a thin pass-through so
+    // existing call sites in screens continue to work.
+    val hasActiveAiProviderApiKey: StateFlow<Boolean> = aiStateHolder.hasActiveAiProviderApiKey
 
-    val hasGeminiApiKey: StateFlow<Boolean> = aiPreferencesRepository.geminiApiKey
-        .map { it.isNotBlank() }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false
-        )
+    // Moved to AiStateHolder.hasGeminiApiKey; thin pass-through.
+    val hasGeminiApiKey: StateFlow<Boolean> = aiStateHolder.hasGeminiApiKey
 
     val fullPlayerLoadingTweaks: StateFlow<FullPlayerLoadingTweaks> = userPreferencesRepository.fullPlayerLoadingTweaksFlow
         .stateIn(
@@ -1391,14 +1353,40 @@ class PlayerViewModel @Inject constructor(
      * Observes a song by ID from Room DB, combined with the latest favorite status.
      * Uses direct Room query instead of scanning the full in-memory list.
      */
+    /**
+     * Per-songId cache so a screen that recomposes (and re-derives its
+     * `observeSong(currentSong.id)`) doesn't subscribe a brand-new Room
+     * collector on every recomposition. Once a screen drops the flow,
+     * SharingStarted.WhileSubscribed(5000) tears the upstream down.
+     *
+     * Caching is bounded — we trim the oldest entry when the map gets too
+     * large to avoid an unbounded Singleton-lifetime growth on a long
+     * session where the user browses many songs.
+     */
+    private val observedSongFlows = java.util.Collections.synchronizedMap(
+        object : LinkedHashMap<String, kotlinx.coroutines.flow.SharedFlow<Song?>>(32, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, kotlinx.coroutines.flow.SharedFlow<Song?>>?
+            ): Boolean = size > 64
+        }
+    )
+
     fun observeSong(songId: String?): Flow<Song?> {
         if (songId == null) return flowOf(null)
-        return combine(
+        observedSongFlows[songId]?.let { return it }
+        val shared = combine(
             musicRepository.getSong(songId),
             favoriteSongIds
         ) { song, favorites ->
             song?.copy(isFavorite = favorites.contains(songId))
         }.distinctUntilChanged()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000L),
+                initialValue = null
+            )
+        observedSongFlows[songId] = shared
+        return shared
     }
 
 
@@ -1897,25 +1885,17 @@ class PlayerViewModel @Inject constructor(
             openPlayerSheetCallback = { _isSheetVisible.value = true }
         )
 
-        // Collect AiStateHolder flows
+        // Mirror AiStateHolder.isGeneratingMetadata into PlayerUiState. The
+        // previous 5-arg combine projected 4 fields that PlayerUiState doesn't
+        // even carry — pure waste. Screens that need showAiPlaylistSheet /
+        // aiStatus / aiError already consume the AiStateHolder pass-throughs
+        // exposed directly on this ViewModel.
         viewModelScope.launch {
-            combine(
-                aiStateHolder.showAiPlaylistSheet,
-                aiStateHolder.isGeneratingAiPlaylist,
-                aiStateHolder.aiStatus,
-                aiStateHolder.aiError,
-                aiStateHolder.isGeneratingMetadata,
-            ) { show, generating, status, error, generatingMetadata ->
-                AiUiSnapshot(
-                    showAiPlaylistSheet = show,
-                    isGeneratingAiPlaylist = generating,
-                    aiStatus = status,
-                    aiError = error,
-                    isGeneratingAiMetadata = generatingMetadata
-                )
-            }.collect { snapshot ->
+            // StateFlow already dedupes via SharingStarted — no
+            // distinctUntilChanged needed.
+            aiStateHolder.isGeneratingMetadata.collect { generatingMetadata ->
                 _playerUiState.update {
-                    it.copy(isGeneratingAiMetadata = snapshot.isGeneratingAiMetadata)
+                    it.copy(isGeneratingAiMetadata = generatingMetadata)
                 }
             }
         }
@@ -3721,14 +3701,20 @@ class PlayerViewModel @Inject constructor(
         val albumsToProcess = albums.take(MAX_ALBUM_BATCH_SELECTION)
         val wasTrimmed = albums.size > albumsToProcess.size
 
+        // Fetch the songs for each album in parallel — six sequential Room
+        // queries on Dispatchers.IO was wall-clock-bound by the slowest disk
+        // read; async/awaitAll lets them overlap.
         val songs = withContext(Dispatchers.IO) {
-            buildList {
-                albumsToProcess.forEach { album ->
-                    val albumSongs = musicRepository.getSongsForAlbum(album.id).first()
-                    if (albumSongs.isNotEmpty()) {
-                        addAll(sortSongsForAlbumSelection(albumSongs))
+            coroutineScope {
+                albumsToProcess
+                    .map { album ->
+                        async { musicRepository.getSongsForAlbum(album.id).first() }
                     }
-                }
+                    .awaitAll()
+                    .flatMap { albumSongs ->
+                        if (albumSongs.isEmpty()) emptyList()
+                        else sortSongsForAlbumSelection(albumSongs)
+                    }
             }
         }
 

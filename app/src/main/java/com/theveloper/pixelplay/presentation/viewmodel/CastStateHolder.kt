@@ -29,7 +29,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class CastStateHolder @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    @com.theveloper.pixelplay.di.AppScope private val appScope: kotlinx.coroutines.CoroutineScope,
 ) {
     private val CAST_STATE_TAG = "CastStateHolder"
 
@@ -181,8 +182,10 @@ class CastStateHolder @Inject constructor(
         pendingRemoteSongId = null
     }
     
-    // MediaRouter State
-    private val mediaRouter: MediaRouter = MediaRouter.getInstance(context)
+    // MediaRouter State. Lazy so MediaRouter.getInstance — which on Cast SDK
+    // versions has triggered Cast SDK initialization on the calling thread —
+    // doesn't run on the first-frame critical path of the singleton graph.
+    private val mediaRouter: MediaRouter by lazy { MediaRouter.getInstance(context) }
     private val mediaRouterCallback = object : MediaRouter.Callback() {
         override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) {
             updateRoutes()
@@ -223,16 +226,15 @@ class CastStateHolder @Inject constructor(
     private val _isRefreshingRoutes = MutableStateFlow(false)
     val isRefreshingRoutes: StateFlow<Boolean> = _isRefreshingRoutes.asStateFlow()
     
-    // Coroutine scope for delays (injected via initialize or use GlobalScope helper if Singleton? 
-    // Ideally we should have a scope. Since it is Singleton, we can use a custom scope or suspend functions.)
-    // But refreshRoutes was launched in ViewModel.
-    // We will make refreshRoutes suspend.
-
+    // refreshRoutes runs against @AppScope so a Cast-route refresh kicked
+    // off mid-flight survives ViewModel teardown (e.g. user rotates while
+    // discovery is running). Per-call cancellation is handled via the
+    // job field below.
     private var refreshRoutesJob: kotlinx.coroutines.Job? = null
 
-    fun refreshRoutes(scope: kotlinx.coroutines.CoroutineScope) {
+    fun refreshRoutes(@Suppress("UNUSED_PARAMETER") scope: kotlinx.coroutines.CoroutineScope = appScope) {
         refreshRoutesJob?.cancel()
-        refreshRoutesJob = scope.launch {
+        refreshRoutesJob = appScope.launch {
             _isRefreshingRoutes.value = true
             mediaRouter.removeCallback(mediaRouterCallback)
             val mediaRouteSelector = buildCastRouteSelector()

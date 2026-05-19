@@ -26,12 +26,13 @@ import androidx.compose.ui.unit.dp
 import coil.size.Size
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Song
+import kotlinx.collections.immutable.ImmutableList
 import kotlin.math.floor
 import kotlin.math.sqrt
 
 @Composable
 fun PlaylistArtCollage(
-    songs: List<Song>,
+    songs: ImmutableList<Song>,
     modifier: Modifier = Modifier,
 ) {
     if (songs.isEmpty()) {

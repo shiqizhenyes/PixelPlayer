@@ -333,9 +333,10 @@ fun LibrarySongsTab(
                                 if (song != null) {
                                     val isSelected = selectedSongIds.contains(song.id)
                                     
-                                    val rememberedOnMoreOptionsClick: (Song) -> Unit = remember(onMoreOptionsClick) {
-                                        { songFromListItem -> onMoreOptionsClick(songFromListItem) }
-                                    }
+                                    // The previous wrapper `{ s -> onMoreOptionsClick(s) }`
+                                    // was identical to passing onMoreOptionsClick directly,
+                                    // and added a remember() slot per item for no gain.
+                                    val rememberedOnMoreOptionsClick: (Song) -> Unit = onMoreOptionsClick
                                     
                                     // In selection mode, click toggles selection instead of playing
                                     val rememberedOnClick: () -> Unit = remember(song, isSelectionMode) {

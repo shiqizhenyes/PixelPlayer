@@ -219,16 +219,19 @@ abstract class PixelPlayDatabase : RoomDatabase() {
 
         val MIGRATION_16_17 = object : Migration(16, 17) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                try {
-                    db.execSQL("ALTER TABLE songs ADD COLUMN telegram_chat_id INTEGER DEFAULT NULL")
-                } catch (e: Exception) {
-                    // Column might already exist
-                }
-                try {
-                    db.execSQL("ALTER TABLE songs ADD COLUMN telegram_file_id INTEGER DEFAULT NULL")
-                } catch (e: Exception) {
-                    // Column might already exist
-                }
+                // SQLite signals "column already exists" as `SQLiteException` with
+                // message "duplicate column name". Any other ALTER failure is a
+                // real schema problem — let it propagate so Room sees the
+                // migration as failed rather than silently shipping a missing
+                // column that later crashes every query.
+                addColumnIgnoringDuplicate(
+                    db,
+                    "ALTER TABLE songs ADD COLUMN telegram_chat_id INTEGER DEFAULT NULL"
+                )
+                addColumnIgnoringDuplicate(
+                    db,
+                    "ALTER TABLE songs ADD COLUMN telegram_file_id INTEGER DEFAULT NULL"
+                )
 
                 // Fix for album_art_themes schema mismatch if user is coming from version 16 (where the schema might be broken)
                 // We re-apply the DROP and RECREATE strategy here to ensure everyone ends up with the correct schema.
@@ -766,6 +769,28 @@ abstract class PixelPlayDatabase : RoomDatabase() {
 
             if ("date_added" !in getTableColumns(db, "songs")) {
                 recreateSongsTable(db)
+            }
+        }
+
+        /**
+         * Execute an `ALTER TABLE … ADD COLUMN` statement, swallowing only
+         * the "duplicate column name" failure SQLite raises when the column
+         * already exists on the table. Any other SQL error propagates so
+         * Room marks the migration as failed instead of shipping a missing
+         * column that crashes later queries.
+         */
+        private fun addColumnIgnoringDuplicate(
+            db: SupportSQLiteDatabase,
+            statement: String
+        ) {
+            try {
+                db.execSQL(statement)
+            } catch (e: android.database.SQLException) {
+                val msg = e.message?.lowercase().orEmpty()
+                if ("duplicate column name" in msg || "already exists" in msg) {
+                    return
+                }
+                throw e
             }
         }
 

@@ -53,7 +53,10 @@ class LyricsStateHolderTest {
         val holder = LyricsStateHolder(
             musicRepository = musicRepository,
             userPreferencesRepository = userPreferencesRepository,
-            songMetadataEditor = songMetadataEditor
+            songMetadataEditor = songMetadataEditor,
+            appScope = kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined
+            ),
         )
         val scope = TestScope(StandardTestDispatcher())
         val callback = RecordingLyricsLoadCallback()

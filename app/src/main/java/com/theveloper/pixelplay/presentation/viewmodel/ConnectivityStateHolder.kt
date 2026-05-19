@@ -49,7 +49,8 @@ data class BluetoothAudioDeviceState(
  */
 @Singleton
 class ConnectivityStateHolder @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    @com.theveloper.pixelplay.di.AppScope private val appScope: kotlinx.coroutines.CoroutineScope,
 ) {
     // WiFi State
     private val _isWifiEnabled = MutableStateFlow(false)
@@ -99,16 +100,24 @@ class ConnectivityStateHolder @Inject constructor(
         }
     }
 
-    // System services
-    private val connectivityManager: ConnectivityManager =
+    // System services. `by lazy` so the cost moves out of singleton
+    // construction (which Hilt does early during PlayerViewModel init, on
+    // the first-frame critical path) and into the first actual use — usually
+    // when initialize() runs, which happens during the second frame after
+    // splash.
+    private val connectivityManager: ConnectivityManager by lazy {
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    private val wifiManager: WifiManager? =
+    }
+    private val wifiManager: WifiManager? by lazy {
         context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-    private val bluetoothManager: BluetoothManager =
+    }
+    private val bluetoothManager: BluetoothManager by lazy {
         context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
-    private val audioManager: android.media.AudioManager =
+    }
+    private val bluetoothAdapter: BluetoothAdapter? by lazy { bluetoothManager.adapter }
+    private val audioManager: android.media.AudioManager by lazy {
         context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+    }
 
     // Callbacks and receivers
     private var networkCallback: ConnectivityManager.NetworkCallback? = null

@@ -81,7 +81,6 @@ import androidx.paging.filter
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -99,7 +98,12 @@ class MusicRepositoryImpl @Inject constructor(
     private val songRepository: SongRepository,
     private val favoritesDao: FavoritesDao,
     private val artistImageRepository: ArtistImageRepository,
-    private val folderTreeBuilder: FolderTreeBuilder
+    private val folderTreeBuilder: FolderTreeBuilder,
+    // Reuse the app-wide CoroutineScope. Per CLAUDE.md the rest of the project
+    // uses @AppScope rather than creating local SupervisorJob() scopes; this
+    // keeps the dispatcher pool sized once at app start and integrates with
+    // the same lifecycle as every other singleton.
+    @com.theveloper.pixelplay.di.AppScope private val appScope: CoroutineScope,
 ) : MusicRepository {
 
     companion object {
@@ -107,10 +111,15 @@ class MusicRepositoryImpl @Inject constructor(
         private const val SEARCH_RESULTS_LIMIT = 100
         private const val UNKNOWN_GENRE_NAME = "Unknown"
         private const val UNKNOWN_GENRE_ID = "unknown"
+        /** Cap on the raw LIKE-query length to prevent runaway full-table scans. */
+        private const val MAX_LIKE_QUERY_LENGTH = 128
     }
 
     private val directoryScanMutex = Mutex()
-    private val repositoryScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // Repository operations want IO. Reuse the app-wide scope's Job so we
+    // share lifecycle but switch the dispatcher to IO for DB/filesystem work.
+    private val repositoryScope: CoroutineScope =
+        CoroutineScope(appScope.coroutineContext + Dispatchers.IO)
     private val defaultLibraryPagingConfig = PagingConfig(
         pageSize = 50,
         enablePlaceholders = true,
@@ -572,14 +581,18 @@ class MusicRepositoryImpl @Inject constructor(
 
     override fun searchAlbums(query: String, minTracks: Int): Flow<List<Album>> {
         if (query.isBlank()) return flowOf(emptyList())
-        return musicDao.searchAlbums(query, emptyList(), false, minTracks).map { entities ->
+        // Cap LIKE-query length so an accidental multi-KB paste doesn't
+        // become a runaway leading-wildcard table scan.
+        val safeQuery = query.take(MAX_LIKE_QUERY_LENGTH)
+        return musicDao.searchAlbums(safeQuery, emptyList(), false, minTracks).map { entities ->
             entities.map { it.toAlbum() }
         }.flowOn(Dispatchers.IO)
     }
 
     override fun searchArtists(query: String): Flow<List<Artist>> {
         if (query.isBlank()) return flowOf(emptyList())
-        return musicDao.searchArtists(query, emptyList(), false).map { entities ->
+        val safeQuery = query.take(MAX_LIKE_QUERY_LENGTH)
+        return musicDao.searchArtists(safeQuery, emptyList(), false).map { entities ->
             entities.map { it.toArtist() }
         }.flowOn(Dispatchers.IO)
     }

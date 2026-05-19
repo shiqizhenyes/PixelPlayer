@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import javax.inject.Inject
@@ -55,20 +56,30 @@ class MultiSelectionStateHolder @Inject constructor() {
      * @param song The song to toggle
      */
     fun toggleSelection(song: Song) {
-        val currentList = _selectedSongs.value.toMutableList()
-        val currentIds = _selectedSongIds.value.toMutableSet()
-        
-        if (currentIds.contains(song.id)) {
-            // Remove from selection
-            currentList.removeAll { it.id == song.id }
-            currentIds.remove(song.id)
-        } else {
-            // Add to selection (preserving order)
-            currentList.add(song)
-            currentIds.add(song.id)
+        // Atomic read-modify-write so rapid concurrent taps cannot drop a
+        // toggle (the previous baseline-snapshot + write pattern was racy:
+        // both callers could read the same baseline and the second write
+        // would overwrite the first). _selectedSongs.update{} retries until
+        // a CAS succeeds.
+        var updatedList: List<Song> = emptyList()
+        var updatedIds: Set<String> = emptySet()
+        _selectedSongs.update { current ->
+            val ids = _selectedSongIds.value
+            if (song.id in ids) {
+                val next = current.filter { it.id != song.id }
+                updatedList = next
+                updatedIds = ids - song.id
+                next
+            } else {
+                val next = current + song
+                updatedList = next
+                updatedIds = ids + song.id
+                next
+            }
         }
-        
-        updateState(currentList, currentIds)
+        _selectedSongIds.value = updatedIds
+        _selectedCount.value = updatedList.size
+        _isSelectionMode.value = updatedList.isNotEmpty()
     }
 
     /**

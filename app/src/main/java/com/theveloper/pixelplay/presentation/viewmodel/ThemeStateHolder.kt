@@ -82,7 +82,10 @@ class ThemeStateHolder @Inject constructor(
                         colorAccuracyLevel = accuracy
                     )
                     _currentAlbumArtColorSchemePair.value = refreshedScheme
-                    individualAlbumColorSchemes[uri]?.value = refreshedScheme
+                    val cachedFlow = synchronized(individualAlbumColorSchemesLock) {
+                        individualAlbumColorSchemes[uri]
+                    }
+                    cachedFlow?.value = refreshedScheme
                 }
         }
 
@@ -133,7 +136,11 @@ class ThemeStateHolder @Inject constructor(
         }
     }
 
-    // LRU Cache for individual album schemes
+    // LRU Cache for individual album schemes. LinkedHashMap with accessOrder=true
+    // mutates the structure on get(), so every read AND write must be guarded
+    // by [individualAlbumColorSchemesLock] — otherwise ConcurrentModificationException
+    // is reachable from concurrent recomposition + extraction coroutines.
+    private val individualAlbumColorSchemesLock = Any()
     private val individualAlbumColorSchemes = object : LinkedHashMap<String, MutableStateFlow<ColorSchemePair?>>(
         32, 0.75f, true
     ) {
@@ -198,29 +205,33 @@ class ThemeStateHolder @Inject constructor(
     ): StateFlow<ColorSchemePair?> {
         if (uriString.isBlank()) return emptyAlbumColorScheme
 
-        val existingFlow = individualAlbumColorSchemes[uriString]
-        if (existingFlow != null) {
-            if (eager && existingFlow.value == null) {
-                requestAlbumColorSchemeGeneration(uriString, existingFlow)
+        val (flow, isNew) = synchronized(individualAlbumColorSchemesLock) {
+            val existing = individualAlbumColorSchemes[uriString]
+            if (existing != null) {
+                existing to false
+            } else {
+                val created = MutableStateFlow<ColorSchemePair?>(null)
+                individualAlbumColorSchemes[uriString] = created
+                created to true
             }
-            return existingFlow.asStateFlow()
         }
 
-        val newFlow = MutableStateFlow<ColorSchemePair?>(null)
-        individualAlbumColorSchemes[uriString] = newFlow
-
-        if (eager) {
-            requestAlbumColorSchemeGeneration(uriString, newFlow)
+        if (eager && (isNew || flow.value == null)) {
+            requestAlbumColorSchemeGeneration(uriString, flow)
         }
 
-        return newFlow.asStateFlow()
+        return flow.asStateFlow()
     }
 
     fun ensureAlbumColorScheme(uriString: String) {
         if (uriString.isBlank()) return
 
-        val targetFlow = individualAlbumColorSchemes[uriString]
-            ?: MutableStateFlow<ColorSchemePair?>(null).also { individualAlbumColorSchemes[uriString] = it }
+        val targetFlow = synchronized(individualAlbumColorSchemesLock) {
+            individualAlbumColorSchemes[uriString]
+                ?: MutableStateFlow<ColorSchemePair?>(null).also {
+                    individualAlbumColorSchemes[uriString] = it
+                }
+        }
 
         if (targetFlow.value != null) return
         requestAlbumColorSchemeGeneration(uriString, targetFlow)
@@ -273,7 +284,9 @@ class ThemeStateHolder @Inject constructor(
          }
 
          // Iterate if there is an active flow for this URI and update it
-         val activeFlow = individualAlbumColorSchemes[uriString]
+         val activeFlow = synchronized(individualAlbumColorSchemesLock) {
+             individualAlbumColorSchemes[uriString]
+         }
          if (activeFlow != null) {
              activeFlow.value = newScheme
          }
@@ -298,7 +311,9 @@ class ThemeStateHolder @Inject constructor(
             level >= ComponentCallbacks2.TRIM_MEMORY_BACKGROUND ||
             level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
         ) {
-            individualAlbumColorSchemes.clear()
+            synchronized(individualAlbumColorSchemesLock) {
+                individualAlbumColorSchemes.clear()
+            }
         }
 
         if (

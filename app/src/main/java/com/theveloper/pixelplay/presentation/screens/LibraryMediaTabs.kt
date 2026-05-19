@@ -61,6 +61,9 @@ import com.theveloper.pixelplay.data.model.SortOption
 import com.theveloper.pixelplay.data.model.StorageFilter
 import com.theveloper.pixelplay.presentation.components.ExpressiveScrollBar
 import com.theveloper.pixelplay.presentation.components.MiniPlayerHeight
+import com.theveloper.pixelplay.presentation.screens.library.AlbumGridItemRedesigned
+import com.theveloper.pixelplay.presentation.screens.library.AlbumListItem
+import com.theveloper.pixelplay.presentation.screens.library.ArtistListItem
 import com.theveloper.pixelplay.presentation.components.PlaylistContainer
 import com.theveloper.pixelplay.presentation.components.albumFastScrollLabel
 import com.theveloper.pixelplay.presentation.components.artistFastScrollLabel

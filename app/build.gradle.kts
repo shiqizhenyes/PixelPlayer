@@ -66,6 +66,21 @@ android {
         versionName = (project.findProperty("APP_VERSION_NAME") as? String) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Telegram TDLib credentials are externalized via BuildConfig so the
+        // built APK can carry credentials specific to this app rather than
+        // being hardcoded to Telegram Desktop's public credentials (which
+        // violates Telegram TOS and can get user accounts flagged). Override
+        // by setting TELEGRAM_API_ID / TELEGRAM_API_HASH in local.properties.
+        // The fallback values keep the build working for OSS contributors.
+        val telegramApiId = (project.findProperty("TELEGRAM_API_ID") as? String)
+            ?: keystoreProperties.getProperty("TELEGRAM_API_ID")
+            ?: "2040"
+        val telegramApiHash = (project.findProperty("TELEGRAM_API_HASH") as? String)
+            ?: keystoreProperties.getProperty("TELEGRAM_API_HASH")
+            ?: "b18441a1ff607e10a989891a5462e627"
+        buildConfigField("int", "TELEGRAM_API_ID", telegramApiId)
+        buildConfigField("String", "TELEGRAM_API_HASH", "\"$telegramApiHash\"")
     }
 
     signingConfigs {
@@ -112,11 +127,16 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+        unitTests.isIncludeAndroidResources = true // Needed by Robolectric
         unitTests.all { it.useJUnitPlatform() }
     }
 
     lint {
-        checkReleaseBuilds = false
+        // Run lint on release so NewApi / MissingPermission / LeakedClosure
+        // are surfaced, but never block a build — release CI surfaces these
+        // as warnings rather than failing the assemble.
+        checkReleaseBuilds = true
+        abortOnError = false
     }
 
     splits {
@@ -124,7 +144,10 @@ android {
             isEnable = enableAbiSplits
             reset()
             if (enableAbiSplits) {
-                include("arm64-v8a", "armeabi-v7a")
+                // x86_64 is required for many Chromebook installs and the
+                // Android Studio emulator. arm64-v8a / armeabi-v7a are the
+                // primary phone targets.
+                include("arm64-v8a", "armeabi-v7a", "x86_64")
                 isUniversalApk = false
             }
         }
@@ -298,6 +321,10 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.androidx.room.testing)
+    testImplementation(libs.ktor.server.test.host)
+    // Robolectric for Android-component unit tests (MediaSession callbacks,
+    // FileProvider, Context-bound helpers) without an emulator.
+    testImplementation(libs.robolectric)
     testImplementation(kotlin("test"))
 
     // Testing (Instrumentation)

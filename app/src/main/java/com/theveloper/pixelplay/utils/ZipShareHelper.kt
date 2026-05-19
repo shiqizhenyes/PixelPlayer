@@ -205,15 +205,29 @@ object ZipShareHelper {
         context.startActivity(chooserIntent)
     }
     
-    private fun sanitizeFileName(name: String): String {
-        // Remove or replace characters that are invalid in filenames
-        return name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
-            .replace(Regex("\\s+"), "_")
-            .take(100) // Limit filename length
-    }
-    
+    private fun sanitizeFileName(name: String): String =
+        sanitizeShareFileName(name)
+
     private fun getFileExtension(path: String): String {
         val extension = path.substringAfterLast('.', "mp3")
         return if (extension.length in 1..4) extension else "mp3"
     }
+}
+
+/**
+ * Strip path separators and shell-unsafe chars, collapse whitespace,
+ * defang leading dots and embedded ".." sequences so a song title cannot
+ * become a hidden file or a relative-path traversal payload on extraction.
+ *
+ * Internal top-level so tests can exercise adversarial inputs without
+ * going through Context-bound ZipShareHelper APIs.
+ */
+internal fun sanitizeShareFileName(name: String): String {
+    var sanitized = name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+        .replace(Regex("\\s+"), "_")
+        .replace(Regex("^\\.+"), "_")
+    if (sanitized.contains("..")) {
+        sanitized = sanitized.replace("..", "_")
+    }
+    return sanitized.take(100)
 }

@@ -22,6 +22,11 @@ class CastOptionsProvider : OptionsProvider {
 
         val mediaOptions = CastMediaOptions.Builder()
             .setNotificationOptions(notificationOptions)
+            // Disable Cast SDK's own MediaSession. Media3's MediaLibraryService
+            // already publishes the authoritative MediaSession; without this,
+            // two sessions coexist while casting and confuse lock-screen /
+            // Bluetooth controllers about which is canonical.
+            .setMediaSessionEnabled(false)
             .build()
 
         return CastOptions.Builder()

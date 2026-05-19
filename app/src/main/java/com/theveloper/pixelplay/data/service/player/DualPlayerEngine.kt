@@ -115,9 +115,12 @@ class DualPlayerEngine @Inject constructor(
     private lateinit var playerA: ExoPlayer
     private lateinit var playerB: ExoPlayer
 
-    private val onPlayerSwappedListeners = mutableListOf<(Player) -> Unit>()
-    private val onTransitionDisplayPlayerListeners = mutableListOf<(Player) -> Unit>()
-    private val onTransitionFinishedListeners = mutableListOf<() -> Unit>()
+    // CopyOnWriteArrayList so add/remove during a transition's forEach iteration
+    // cannot throw ConcurrentModificationException — release/init races against
+    // a transition completing previously caused crashes on rapid swaps.
+    private val onPlayerSwappedListeners = java.util.concurrent.CopyOnWriteArrayList<(Player) -> Unit>()
+    private val onTransitionDisplayPlayerListeners = java.util.concurrent.CopyOnWriteArrayList<(Player) -> Unit>()
+    private val onTransitionFinishedListeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
     
     // Active Audio Session ID Flow
     private val _activeAudioSessionId = MutableStateFlow(0)
@@ -356,7 +359,13 @@ class DualPlayerEngine @Inject constructor(
     fun getAudioSessionId(): Int = playerA.audioSessionId
 
     private var isReleased = false
-    private val resolvedUriCache = LruCache<String, Uri>(100)
+    // Cloud-resolved URIs typically embed a time-bound access token (signed
+    // GDrive URLs expire after an hour; Subsonic stream URLs include a salted
+    // token that the server may rotate). Cache resolved URIs with a TTL so a
+    // stale token doesn't get re-used after a long pause.
+    private data class CachedResolvedUri(val uri: Uri, val cachedAtMs: Long)
+    private val resolvedUriCacheTtlMs = 15L * 60L * 1000L // 15 minutes
+    private val resolvedUriCache = LruCache<String, CachedResolvedUri>(100)
 
     init {
         initialize()
@@ -631,11 +640,16 @@ class DualPlayerEngine @Inject constructor(
                 val scheme = uri.scheme
                 if (scheme in REMOTE_MEDIA_SCHEMES) {
                     val originalUri = uri.toString()
-                    val resolved = resolvedUriCache.get(originalUri)
-                    if (resolved != null) {
-                        return dataSpec.buildUpon().setUri(resolved).build()
+                    val cached = resolvedUriCache.get(originalUri)
+                    if (cached != null) {
+                        val age = System.currentTimeMillis() - cached.cachedAtMs
+                        if (age <= resolvedUriCacheTtlMs) {
+                            return dataSpec.buildUpon().setUri(cached.uri).build()
+                        }
+                        // Stale — drop and fall through to re-resolve.
+                        resolvedUriCache.remove(originalUri)
                     }
-                    
+
                     Timber.tag("DualPlayerEngine").d("resolveDataSpec: Cache MISS for %s - attempting to use original URI", scheme)
                 }
                 return dataSpec
@@ -675,7 +689,12 @@ class DualPlayerEngine @Inject constructor(
     }
 
     fun setPauseAtEndOfMediaItems(shouldPause: Boolean) {
+        // Apply to BOTH players. After performOverlapTransition swaps playerA
+        // and playerB, the new master may be either instance; setting the
+        // flag on only one half meant the EOT pause was lost across the
+        // transition. Setting it on both is idempotent and cheap.
         playerA.pauseAtEndOfMediaItems = shouldPause
+        playerB.pauseAtEndOfMediaItems = shouldPause
     }
 
     fun getNextTransitionTarget(currentMediaItem: MediaItem, repeatMode: Int): TransitionTarget? {
@@ -710,7 +729,11 @@ class DualPlayerEngine @Inject constructor(
 
     suspend fun resolveCloudUri(uri: Uri): Uri = withContext(Dispatchers.IO) {
         val uriString = uri.toString()
-        resolvedUriCache.get(uriString)?.let { return@withContext it }
+        resolvedUriCache.get(uriString)?.let { cached ->
+            val age = System.currentTimeMillis() - cached.cachedAtMs
+            if (age <= resolvedUriCacheTtlMs) return@withContext cached.uri
+            resolvedUriCache.remove(uriString)
+        }
 
         val resolved: Uri? = when (uri.scheme) {
             "telegram" -> resolveTelegramUriAsync(uri, uriString)
@@ -723,7 +746,7 @@ class DualPlayerEngine @Inject constructor(
         }
 
         if (resolved != null) {
-            resolvedUriCache.put(uriString, resolved)
+            resolvedUriCache.put(uriString, CachedResolvedUri(resolved, System.currentTimeMillis()))
             return@withContext resolved
         }
         uri

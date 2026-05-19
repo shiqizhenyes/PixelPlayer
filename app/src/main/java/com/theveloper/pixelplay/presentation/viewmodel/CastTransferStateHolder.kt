@@ -50,11 +50,16 @@ class CastTransferStateHolder @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val castStateHolder: CastStateHolder,
     private val playbackStateHolder: PlaybackStateHolder,
-    private val dualPlayerEngine: DualPlayerEngine // For local player control during transfer
+    private val dualPlayerEngine: DualPlayerEngine, // For local player control during transfer
+    @com.theveloper.pixelplay.di.AppScope private val appScope: CoroutineScope,
 ) {
     private val CAST_LOG_TAG = "PlayerCastTransfer"
 
-    private var scope: CoroutineScope? = null
+    // Use @AppScope so a Cast transfer-back-to-phone operation isn't
+    // cancelled mid-flight when the ViewModel that started it is cleared
+    // (config change, deep-link nav, etc.). Per-VM callbacks are still
+    // cleared in onCleared.
+    private val scope: CoroutineScope get() = appScope
     
     // Callbacks for interacting with PlayerViewModel
     // Provides current queue from UI state
@@ -131,7 +136,8 @@ class CastTransferStateHolder @Inject constructor(
         onCastError: (String) -> Unit,
         onSongChanged: (String?) -> Unit
     ) {
-        this.scope = scope
+        // scope param is now ignored — see field comment above. Callbacks
+        // are still per-VM-session and get reset in onCleared.
         this.getCurrentQueue = getCurrentQueue
         this.updateQueue = updateQueue
         this.getSongsByIdMap = getSongsByIdMap
@@ -194,7 +200,7 @@ class CastTransferStateHolder @Inject constructor(
             }
             override fun onSessionEnded(session: CastSession, error: Int) {
                 sessionSuspendedRecoveryJob?.cancel()
-                scope?.launch { stopServerAndTransferBack() }
+                scope.launch { stopServerAndTransferBack() }
             }
             override fun onSessionSuspended(session: CastSession, reason: Int) {
                 Timber.tag(CAST_LOG_TAG).w("Cast session suspended (reason=%d). Waiting for recovery.", reason)
@@ -241,7 +247,7 @@ class CastTransferStateHolder @Inject constructor(
 
     private fun scheduleSessionSuspendedRecovery(suspendedSession: CastSession) {
         sessionSuspendedRecoveryJob?.cancel()
-        sessionSuspendedRecoveryJob = scope?.launch {
+        sessionSuspendedRecoveryJob = scope.launch {
             delay(12000)
             val activeSession = sessionManager?.currentCastSession
             val stillSameSession = activeSession === suspendedSession
@@ -486,7 +492,7 @@ class CastTransferStateHolder @Inject constructor(
     }
     
     private fun transferPlayback(session: CastSession) {
-        scope?.launch {
+        scope.launch {
             castStateHolder.setPendingCastRouteId(null)
             castStateHolder.setCastConnecting(true)
             castStateHolder.setRemotelySeeking(false)
@@ -579,7 +585,7 @@ class CastTransferStateHolder @Inject constructor(
                                 detail
                             )
                             session.remoteMediaClient?.requestStatus()
-                            scope?.launch {
+                            scope.launch {
                                 delay(450)
                                 if (castStateHolder.castSession.value === session &&
                                     !castStateHolder.isRemotePlaybackActive.value
@@ -636,13 +642,13 @@ class CastTransferStateHolder @Inject constructor(
         remoteProgressObserverJob?.cancel()
         remoteStatusRefreshJob?.cancel()
 
-        remoteProgressObserverJob = scope?.launch {
+        remoteProgressObserverJob = scope.launch {
             castStateHolder.remotePosition.collect { position ->
                 playbackStateHolder.setCurrentPosition(position)
             }
         }
 
-        remoteStatusRefreshJob = scope?.launch {
+        remoteStatusRefreshJob = scope.launch {
             while (true) {
                 val remoteClient = castStateHolder.castSession.value?.remoteMediaClient
                 if (remoteClient == null) {
@@ -1179,7 +1185,7 @@ class CastTransferStateHolder @Inject constructor(
 
     private fun launchAlignToTarget(targetSongId: String) {
         alignToTargetJob?.cancel()
-        alignToTargetJob = scope?.launch {
+        alignToTargetJob = scope.launch {
             alignRemotePlaybackToSong(targetSongId)
         }
     }
@@ -1286,7 +1292,7 @@ class CastTransferStateHolder @Inject constructor(
         onDisconnect = null
         onCastError = null
         onSongChanged = null
-        scope = null
+        // scope is @AppScope; nothing to null. Per-VM callbacks cleared above.
         skipTransferBackOnNextSessionEnd = false
     }
 

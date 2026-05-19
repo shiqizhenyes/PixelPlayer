@@ -54,7 +54,11 @@ fun SmartImage(
     crossfadeDurationMillis: Int = 300,
     useDiskCache: Boolean = true,
     useMemoryCache: Boolean = true,
-    allowHardware: Boolean = false,
+    // Default to hardware bitmaps — the global ImageLoader is built with
+    // .allowHardware(true) for memory efficiency (~256 KB ARGB_8888 image
+    // becomes a small handle into VRAM). Only palette/color-extraction call
+    // sites that need to read pixels should pass false explicitly.
+    allowHardware: Boolean = true,
     targetSize: Size = DefaultSmartImageSize,
     colorFilter: ColorFilter? = null,
     alpha: Float = 1f,

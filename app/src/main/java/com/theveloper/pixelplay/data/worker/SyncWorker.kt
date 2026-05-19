@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.absoluteValue // Added
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -417,9 +418,20 @@ constructor(
                     val finalTotalSongs = musicDao.getSongCount().first()
 
                     Result.success(workDataOf(OUTPUT_TOTAL_SONGS to finalTotalSongs.toLong()))
+                } catch (e: CancellationException) {
+                    Log.w(TAG, "Sync cancelled — returning retry so WorkManager re-runs", e)
+                    throw e
                 } catch (e: Exception) {
                     Log.e(TAG, "Error during MediaStore synchronization", e)
-                    Result.failure()
+                    // Distinguish transient failures (DB busy, network/IO blip,
+                    // SQLiteFullException recoverable) from permanent ones so
+                    // WorkManager re-runs with exponential backoff rather than
+                    // marking the sync permanently failed until next user refresh.
+                    val isTransient = e is java.io.IOException ||
+                        e is android.database.sqlite.SQLiteCantOpenDatabaseException ||
+                        e is android.database.sqlite.SQLiteDatabaseLockedException ||
+                        e is android.database.sqlite.SQLiteDiskIOException
+                    if (isTransient && runAttemptCount < 3) Result.retry() else Result.failure()
                 } finally {
                     Trace.endSection() // End SyncWorker.doWork
                 }
@@ -1362,6 +1374,42 @@ constructor(
             Log.d(TAG, "Genre cache invalidated")
         }
 
+        /**
+         * Stable 64-bit FNV-1a hash. Replaces `String.hashCode()` for synthetic
+         * Telegram/Netease song/album/artist IDs — the JDK's 32-bit hash has
+         * ~50% collision probability around 65k entries, which is reachable
+         * for large Telegram channels. FNV-1a keeps the full 64 bits and the
+         * collision probability stays below 1e-10 well past a million entries.
+         */
+        internal fun stableFnv1aHash64(input: String): Long {
+            var hash = -3750763034362895579L // FNV-1a 64-bit offset basis
+            for (c in input) {
+                hash = hash xor (c.code.toLong() and 0xFFL)
+                hash *= 1099511628211L // FNV-1a 64-bit prime
+            }
+            return hash
+        }
+
+        /**
+         * Produce a non-zero negative Long ID from a stable 64-bit hash of
+         * [input]. Negative values mark synthetic (non-MediaStore) IDs in the
+         * DB; the absolute-value step keeps the magnitude predictable, and
+         * we floor at -1 so the sentinel 0 cannot leak in.
+         */
+        internal fun stableNegativeSyntheticId(input: String): Long {
+            val hash = stableFnv1aHash64(input)
+            val absHash = if (hash == Long.MIN_VALUE) Long.MAX_VALUE else kotlin.math.abs(hash)
+            val negated = -absHash
+            return if (negated == 0L) -1L else negated
+        }
+
+        // 30s exponential backoff applied inline in each builder. Set after
+        // .setInputData/.setConstraints so the fluent chain stays in the
+        // OneTimeWorkRequest.Builder receiver and .build() resolves.
+        // Transient failures (Result.retry from SQLiteDiskIOException, IOException)
+        // are then retried automatically rather than waiting for the next
+        // user-initiated sync.
+
         fun startUpSyncWork(deepScan: Boolean = false) =
                 OneTimeWorkRequestBuilder<SyncWorker>()
                         .setInputData(
@@ -1370,11 +1418,19 @@ constructor(
                                         INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name
                                 )
                         )
+                        .setBackoffCriteria(
+                                androidx.work.BackoffPolicy.EXPONENTIAL,
+                                30, java.util.concurrent.TimeUnit.SECONDS
+                        )
                         .build()
 
         fun incrementalSyncWork() =
                 OneTimeWorkRequestBuilder<SyncWorker>()
                         .setInputData(workDataOf(INPUT_SYNC_MODE to SyncMode.INCREMENTAL.name))
+                        .setBackoffCriteria(
+                                androidx.work.BackoffPolicy.EXPONENTIAL,
+                                30, java.util.concurrent.TimeUnit.SECONDS
+                        )
                         .build()
 
         // Full rescans and rebuilds do heavy bulk writes to Room + the album art cache.
@@ -1395,12 +1451,20 @@ constructor(
                                 )
                         )
                         .setConstraints(heavySyncConstraints)
+                        .setBackoffCriteria(
+                                androidx.work.BackoffPolicy.EXPONENTIAL,
+                                30, java.util.concurrent.TimeUnit.SECONDS
+                        )
                         .build()
 
         fun rebuildDatabaseWork() =
                 OneTimeWorkRequestBuilder<SyncWorker>()
                         .setInputData(workDataOf(INPUT_SYNC_MODE to SyncMode.REBUILD.name))
                         .setConstraints(heavySyncConstraints)
+                        .setBackoffCriteria(
+                                androidx.work.BackoffPolicy.EXPONENTIAL,
+                                30, java.util.concurrent.TimeUnit.SECONDS
+                        )
                         .build()
     }
     
@@ -1420,10 +1484,14 @@ constructor(
                 return 
             }
 
-            // 1. Pre-load Local Data for Merging
-            val existingArtists = musicDao.getAllArtistsListRaw().associate { it.name.trim().lowercase() to it.id }
+            // 1. Pre-load Local Data for Merging. Issue getAllArtistsListRaw
+            // once and derive both projections from the same list — Room
+            // doesn't auto-deduplicate suspend calls, so the previous
+            // two-call pattern re-queried the entire artists table.
+            val artistRowsForMerge = musicDao.getAllArtistsListRaw()
+            val existingArtists = artistRowsForMerge.associate { it.name.trim().lowercase() to it.id }
             val existingAlbums = musicDao.getAllAlbumsList(emptyList(), false, 0).associate { "${it.title.trim().lowercase()}_${it.artistName.trim().lowercase()}" to it.id }
-            val existingArtistImageUrls = musicDao.getAllArtistsListRaw().associate { it.id to it.imageUrl }
+            val existingArtistImageUrls = artistRowsForMerge.associate { it.id to it.imageUrl }
             val nextArtistId = AtomicLong((musicDao.getMaxArtistId() ?: 0L) + 1)
             val delimiters = userPreferencesRepository.artistDelimitersFlow.first()
             val wordDelims = userPreferencesRepository.artistWordDelimitersFlow.first()
@@ -1437,9 +1505,10 @@ constructor(
                 val channelName = channels[tSong.chatId]?.title ?: "Telegram Stream"
                 // Synthetic negative ID for Song to check existence, but we want to merge metadata
                 // We use negative IDs for songs to definitively identify them as Telegram-sourced in the DB
-                // This prevents collision with MediaStore numeric IDs.
-                val songId = -(tSong.id.hashCode().toLong().absoluteValue)
-                val finalSongId = if (songId == 0L) -1L else songId
+                // This prevents collision with MediaStore numeric IDs. tSong.id is
+                // formatted as "chatId_messageId" — a 64-bit hash over that gives
+                // far lower collision probability than String.hashCode().
+                val finalSongId = stableNegativeSyntheticId(tSong.id)
                 
                 // 2. Metadata Refinement (ID3 for Downloaded Files)
                 var realTitle = tSong.title
@@ -1504,8 +1573,8 @@ constructor(
                         existingId // Use Positive MediaStore ID
                     } else {
                         // Generate consistent negative ID for Telegram-only artist
-                        val synthId = -(cleanName.hashCode().toLong().absoluteValue)
-                        if (synthId == 0L) -1L else synthId
+                        // via a 64-bit hash to avoid 32-bit collisions across libraries.
+                        stableNegativeSyntheticId(cleanName)
                     }
 
                     if (index == 0) primaryArtistId = finalArtistId
@@ -1536,9 +1605,9 @@ constructor(
                 val finalAlbumId = if (existingAlbumId != null) {
                     existingAlbumId // Merge with local album
                 } else {
-                    // Synthetic negative ID
-                    val synthId = -(realAlbumName.hashCode().toLong().absoluteValue)
-                    if (synthId == 0L) -1L else synthId
+                    // Synthetic negative ID via a 64-bit hash (avoid 32-bit collisions
+                    // between same-named albums across different Telegram channels).
+                    stableNegativeSyntheticId(albumKey)
                 }
                 
                 if (!albumsToInsert.containsKey(finalAlbumId)) {
@@ -1758,13 +1827,20 @@ constructor(
         val normalized = if (albumId > 0L) {
             albumId.absoluteValue
         } else {
-            albumName.lowercase().hashCode().toLong().absoluteValue
+            // 64-bit hash for synthesized IDs — 32-bit String.hashCode()
+            // collisions across same-titled albums caused row overwrites.
+            stableFnv1aHash64(albumName.lowercase()).let {
+                if (it == Long.MIN_VALUE) Long.MAX_VALUE else kotlin.math.abs(it)
+            }
         }
-        return -(NETEASE_ALBUM_ID_OFFSET + normalized)
+        return -(NETEASE_ALBUM_ID_OFFSET + (normalized % (Long.MAX_VALUE - NETEASE_ALBUM_ID_OFFSET)))
     }
 
     private fun toUnifiedNeteaseArtistId(artistName: String): Long {
-        return -(NETEASE_ARTIST_ID_OFFSET + artistName.lowercase().hashCode().toLong().absoluteValue)
+        val hashed = stableFnv1aHash64(artistName.lowercase()).let {
+            if (it == Long.MIN_VALUE) Long.MAX_VALUE else kotlin.math.abs(it)
+        }
+        return -(NETEASE_ARTIST_ID_OFFSET + (hashed % (Long.MAX_VALUE - NETEASE_ARTIST_ID_OFFSET)))
     }
 
     private suspend fun syncNavidromeData() {

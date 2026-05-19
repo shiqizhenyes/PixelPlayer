@@ -125,12 +125,16 @@ class ArtistDetailViewModel @Inject constructor(
                         val albumSections = buildAlbumSections(songs)
                         val orderedSongs = albumSections.flatMap { it.songs }
 
-                        // 1) Resolve effective image URL (custom > Deezer, may fetch from API)
+                        // 1) Resolve effective image URL (custom > Deezer, may fetch from API).
+                        //    Pinned to Dispatchers.IO so the upstream collector
+                        //    is unblocked while the Deezer HTTP fetch runs.
                         val effectiveUrl = try {
-                            artistImageRepository.getEffectiveArtistImageUrl(
-                                artistId = artist.id,
-                                artistName = artist.name
-                            )
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                artistImageRepository.getEffectiveArtistImageUrl(
+                                    artistId = artist.id,
+                                    artistName = artist.name
+                                )
+                            }
                         } catch (e: Exception) {
                             Log.w("ArtistDebug", "Failed to resolve effective artist image: ${e.message}")
                             artist.effectiveImageUrl

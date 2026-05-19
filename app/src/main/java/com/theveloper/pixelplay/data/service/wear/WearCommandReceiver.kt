@@ -543,13 +543,23 @@ class WearCommandReceiver : WearableListenerService() {
      * then falling back to ContentResolver.
      */
     private fun openSongFile(song: Song): InputStream? {
+        // Only try direct File access for paths that look like real filesystem
+        // paths. Cloud-source songs (Telegram, Navidrome, Jellyfin, …) store
+        // their stream URI in song.path (e.g. "telegram://…"); constructing a
+        // File(song.path) for those is at best a no-op disk stat and at worst
+        // could match an unrelated on-disk filename. The contentUriString
+        // fallback is the canonical opener for cloud sources.
+        val pathIsLocalFile = song.path.isNotBlank() &&
+            !song.path.contains("://") &&
+            song.path.startsWith("/")
         return try {
-            val file = File(song.path)
-            if (file.exists() && file.canRead()) {
-                file.inputStream()
-            } else {
-                contentResolver.openInputStream(song.contentUriString.toUri())
+            if (pathIsLocalFile) {
+                val file = File(song.path)
+                if (file.exists() && file.canRead()) {
+                    return file.inputStream()
+                }
             }
+            contentResolver.openInputStream(song.contentUriString.toUri())
         } catch (e: Exception) {
             Timber.tag(TAG).w(e, "Failed to open song file: ${song.path}")
             try {

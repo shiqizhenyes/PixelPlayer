@@ -100,7 +100,14 @@ class LyricsRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "LyricsRepository"
-        
+
+        // Safety caps for file IO. TagLib's tag readers only need file
+        // headers; 10 MB easily covers every realistic embedded-tag layout.
+        private const val TEMP_AUDIO_COPY_MAX_BYTES = 10L * 1024L * 1024L
+        // JSON lyrics caches are tiny in practice; 2 MB is well above
+        // anything legitimate and guards against pathological writes.
+        private const val LYRICS_JSON_CACHE_MAX_BYTES = 2L * 1024L * 1024L
+
         // Cache sizes (matching Rhythm)
         private const val MAX_LYRICS_CACHE_SIZE = 150
         
@@ -1176,6 +1183,11 @@ class LyricsRepositoryImpl @Inject constructor(
         val fileName = "${song.id}.json"
         val file = File(context.filesDir, "lyrics/$fileName")
         if (!file.exists()) return null
+        // Defensive size cap. The cache directory is app-private so risk is
+        // low, but a wedged write could leave a multi-MB JSON that would
+        // block the IO thread on every load; treating absurdly large files
+        // as a cache miss is safer than reading them.
+        if (file.length() > LYRICS_JSON_CACHE_MAX_BYTES) return null
 
         val json = file.readText()
         return gson.fromJson(json, LyricsData::class.java)
@@ -1593,8 +1605,24 @@ class LyricsRepositoryImpl @Inject constructor(
                 } ?: "temp_audio"
 
                 val tempFile = File.createTempFile("lyrics_", "_$fileName", context.cacheDir)
+                // Cap the copy at TEMP_AUDIO_COPY_MAX_BYTES so a malicious or
+                // mis-pointed content URI cannot fill the cache directory. The
+                // downstream TagLib reader only needs file headers (~10 MB
+                // covers every realistic embedded-tag layout); abort cleanly
+                // if more is required than the cap allows.
                 FileOutputStream(tempFile).use { output ->
-                    inputStream.copyTo(output)
+                    val buffer = ByteArray(64 * 1024)
+                    var totalCopied = 0L
+                    while (true) {
+                        val read = inputStream.read(buffer)
+                        if (read <= 0) break
+                        if (totalCopied + read > TEMP_AUDIO_COPY_MAX_BYTES) {
+                            output.write(buffer, 0, (TEMP_AUDIO_COPY_MAX_BYTES - totalCopied).toInt())
+                            break
+                        }
+                        output.write(buffer, 0, read)
+                        totalCopied += read
+                    }
                 }
                 tempFile
             }

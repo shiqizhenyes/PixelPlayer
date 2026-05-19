@@ -40,6 +40,7 @@ import javax.inject.Singleton
 @Singleton
 class SleepTimerStateHolder @Inject constructor(
     @ApplicationContext private val context: Context,
+    @com.theveloper.pixelplay.di.AppScope private val appScope: CoroutineScope,
 ) {
     // Timer State
     private val _sleepTimerEndTimeMillis = MutableStateFlow<Long?>(null)
@@ -61,9 +62,12 @@ class SleepTimerStateHolder @Inject constructor(
     private var sleepTimerJob: Job? = null
     private var eotSongMonitorJob: Job? = null
 
-    // Dependencies that will be injected via initialize
-    private val alarmManager: AlarmManager =
+    // Dependencies that will be injected via initialize.
+    // Lazy so the AlarmManager system-service lookup moves off the
+    // first-frame critical path (Hilt builds this singleton early).
+    private val alarmManager: AlarmManager by lazy {
         context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    }
 
     private var scope: CoroutineScope? = null
     private var toastEmitter: (suspend (String) -> Unit)? = null
@@ -89,14 +93,15 @@ class SleepTimerStateHolder @Inject constructor(
      * Must be called before using timer functions.
      */
     fun initialize(
-        scope: CoroutineScope,
+        @Suppress("UNUSED_PARAMETER") scope: CoroutineScope,
         toastEmitter: suspend (String) -> Unit,
         mediaControllerProvider: () -> MediaController?,
         currentSongIdProvider: () -> StateFlow<String?>,
         songTitleResolver: (String?) -> String
     ) {
-        this.scope = scope
-        this.toastEmitter = { msg -> scope.launch { toastEmitter(msg) } }
+        // Use @AppScope so sleep-timer ticking jobs survive ViewModel teardown.
+        this.scope = appScope
+        this.toastEmitter = { msg -> appScope.launch { toastEmitter(msg) } }
         this.mediaControllerProvider = mediaControllerProvider
         this.currentSongIdProvider = currentSongIdProvider
         this.songTitleResolver = songTitleResolver
@@ -293,9 +298,9 @@ class SleepTimerStateHolder @Inject constructor(
      * Cleanup when ViewModel is cleared.
      */
     fun onCleared() {
+        // scope is @AppScope; only cancel per-session jobs and clear callbacks.
         sleepTimerJob?.cancel()
         eotSongMonitorJob?.cancel()
-        scope = null
         toastEmitter = null
         mediaControllerProvider = null
         currentSongIdProvider = null

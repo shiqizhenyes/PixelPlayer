@@ -394,10 +394,16 @@ fun HomeScreen(
                         val isAutoRotate = settingsUiState.collageAutoRotate
                         val patterns = remember { CollagePattern.entries }
 
+                        // Hoisted outside the if-branch so the rotation index
+                        // survives auto-rotate being toggled on/off (an
+                        // if-branch rememberSaveable is destroyed when the
+                        // branch flips, losing position).
+                        var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
+                        LaunchedEffect(isAutoRotate) {
+                            if (isAutoRotate) rotationIndex++
+                        }
                         val activePattern = if (isAutoRotate) {
-                            var rotationIndex by rememberSaveable { mutableIntStateOf(-1) }
-                            LaunchedEffect(Unit) { rotationIndex++ }
-                            remember(rotationIndex) {
+                            remember(rotationIndex, patterns) {
                                 patterns[rotationIndex.coerceAtLeast(0) % patterns.size]
                             }
                         } else {

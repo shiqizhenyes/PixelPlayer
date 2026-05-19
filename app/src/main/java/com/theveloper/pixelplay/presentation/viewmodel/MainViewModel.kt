@@ -34,8 +34,11 @@ class MainViewModel @Inject constructor(
         .map { it > 0L }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = true // 乐观策略：默认已同步
+            // WhileSubscribed avoids keeping a DataStore collector hot for the
+            // whole VM lifetime. Splash-decision callers subscribe eagerly
+            // themselves so the 5s grace is enough to bridge config changes.
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = true
         )
 
     /**
@@ -45,7 +48,7 @@ class MainViewModel @Inject constructor(
     val isSyncing: StateFlow<Boolean> = syncManager.isSyncing
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.Eagerly,
+            started = SharingStarted.WhileSubscribed(5000),
             initialValue = false
         )
 
@@ -62,10 +65,14 @@ class MainViewModel @Inject constructor(
     /**
      * Un Flow que emite `true` si la base de datos de Room no tiene canciones.
      * Nos ayuda a saber si es la primera vez que se abre la app.
+     *
+     * Uses getSongCountFlow() (a cheap `SELECT COUNT(*)`) instead of fetching
+     * the entire library and computing isEmpty() — for 30k-song libraries the
+     * latter loads a ~30 MB list just to check a single boolean.
      */
     val isLibraryEmpty: StateFlow<Boolean> = musicRepository
-        .getAudioFiles()
-        .map { it.isEmpty() }
+        .getSongCountFlow()
+        .map { it == 0 }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),

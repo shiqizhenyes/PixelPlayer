@@ -45,8 +45,16 @@ fun PixelPlayStatusBarStyle(
     if (view.isInEditMode) return
 
     val updateNavigationBar = navigationColor != null
-    SideEffect {
-        val window = view.context.findActivity()?.window ?: return@SideEffect
+    // Use LaunchedEffect keyed on the actual inputs so the window write only
+    // re-fires when the icon-mode flips. SideEffect would run after every
+    // successful composition — every album transition causes recomposition
+    // pulses, and a per-frame WindowInsetsController write is wasteful.
+    androidx.compose.runtime.LaunchedEffect(
+        useDarkIcons,
+        useDarkNavigationIcons,
+        updateNavigationBar
+    ) {
+        val window = view.context.findActivity()?.window ?: return@LaunchedEffect
         window.statusBarColor = android.graphics.Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.isStatusBarContrastEnforced = false

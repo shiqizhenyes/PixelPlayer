@@ -32,6 +32,7 @@ import com.theveloper.pixelplay.data.database.TransitionDao
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.dataStore
+import com.theveloper.pixelplay.data.preferences.playbackDataStore
 import com.theveloper.pixelplay.data.media.SongMetadataEditor
 import com.theveloper.pixelplay.data.network.deezer.DeezerApiService
 import com.theveloper.pixelplay.data.network.netease.NeteaseApiService
@@ -95,6 +96,19 @@ object AppModule {
     fun providePreferencesDataStore(
         @ApplicationContext context: Context
     ): DataStore<Preferences> = context.dataStore
+
+    /**
+     * Dedicated playback-prefs DataStore. Lives in its own file
+     * ("playback.preferences_pb") so writes to playback preferences don't
+     * trigger re-emission across the 117-key main "settings" store. Migration
+     * of the existing playback keys is incremental — see UserPreferencesRepository.
+     */
+    @Provides
+    @Singleton
+    @PlaybackDataStore
+    fun providePlaybackDataStore(
+        @ApplicationContext context: Context
+    ): DataStore<Preferences> = context.playbackDataStore
 
     @Singleton
     @Provides
@@ -373,7 +387,8 @@ object AppModule {
         songRepository: SongRepository,
         favoritesDao: FavoritesDao,
         artistImageRepository: ArtistImageRepository,
-        folderTreeBuilder: FolderTreeBuilder
+        folderTreeBuilder: FolderTreeBuilder,
+        @AppScope appScope: CoroutineScope,
     ): MusicRepository {
         return MusicRepositoryImpl(
             context = context,
@@ -388,7 +403,8 @@ object AppModule {
             songRepository = songRepository,
             favoritesDao = favoritesDao,
             artistImageRepository = artistImageRepository,
-            folderTreeBuilder = folderTreeBuilder
+            folderTreeBuilder = folderTreeBuilder,
+            appScope = appScope,
         )
 
     }
@@ -418,7 +434,7 @@ object AppModule {
      */
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(@ApplicationContext context: Context): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             // HEADERS (not BODY) so we never print response bodies that may contain
             // cookies, tokens, or third-party API payloads. Headers are still useful
@@ -446,8 +462,16 @@ object AppModule {
             timeUnit = java.util.concurrent.TimeUnit.SECONDS
         )
         
+        // 50 MB HTTP cache. Deezer artist images, LRCLIB hits, AMLLDB lyrics
+        // requests can benefit from RFC-7234 caching. Lyrics already maintain
+        // their own JSON disk cache, but image / metadata lookups had no
+        // HTTP-layer cache and re-hit the network on every cold launch.
+        val httpCacheDir = java.io.File(context.cacheDir, "okhttp-cache")
+        val httpCache = okhttp3.Cache(httpCacheDir, 50L * 1024L * 1024L)
+
         return OkHttpClient.Builder()
             .connectionPool(connectionPool)
+            .cache(httpCache)
             .connectTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
             .writeTimeout(8, java.util.concurrent.TimeUnit.SECONDS)

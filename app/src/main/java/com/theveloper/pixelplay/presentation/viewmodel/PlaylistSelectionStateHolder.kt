@@ -4,6 +4,7 @@ import com.theveloper.pixelplay.data.model.Playlist
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,20 +51,29 @@ class PlaylistSelectionStateHolder @Inject constructor() {
      * @param playlist The playlist to toggle
      */
     fun toggleSelection(playlist: Playlist) {
-        val currentList = _selectedPlaylists.value.toMutableList()
-        val currentIds = _selectedPlaylistIds.value.toMutableSet()
-        
-        if (currentIds.contains(playlist.id)) {
-            // Remove from selection
-            currentList.removeAll { it.id == playlist.id }
-            currentIds.remove(playlist.id)
-        } else {
-            // Add to selection (preserving order)
-            currentList.add(playlist)
-            currentIds.add(playlist.id)
+        // Atomic update — see MultiSelectionStateHolder for the rationale
+        // (rapid concurrent taps from different gesture handlers can drop
+        // a toggle under read-modify-write).
+        var updatedList: List<Playlist> = emptyList()
+        var updatedIds: Set<String> = emptySet()
+        val pid = playlist.id.toString()
+        _selectedPlaylists.update { current ->
+            val ids = _selectedPlaylistIds.value
+            if (pid in ids) {
+                val next = current.filter { it.id != playlist.id }
+                updatedList = next
+                updatedIds = ids - pid
+                next
+            } else {
+                val next = current + playlist
+                updatedList = next
+                updatedIds = ids + pid
+                next
+            }
         }
-        
-        updateState(currentList, currentIds)
+        _selectedPlaylistIds.value = updatedIds
+        _selectedCount.value = updatedList.size
+        _isSelectionMode.value = updatedList.isNotEmpty()
     }
 
     /**

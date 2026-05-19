@@ -99,6 +99,10 @@ class TelegramClientManager @Inject constructor(
                 
                 // Let's assume the error message `constructor(p0: Boolean, p1: String!, ...)` matches the fields.
                 
+                // Credentials sourced from BuildConfig so per-build overrides
+                // via local.properties / Gradle properties take effect without
+                // committing secrets. Falls back to the legacy values so OSS
+                // contributors can still build the app out of the box.
                 client?.send(TdApi.SetTdlibParameters(
                     false, // useTestDc
                     databaseDirectory,
@@ -108,8 +112,8 @@ class TelegramClientManager @Inject constructor(
                     true, // useChatInfoDatabase
                     true, // useMessageDatabase
                     false, // useSecretChats
-                    2040, // apiId
-                    "b18441a1ff607e10a989891a5462e627", // apiHash
+                    com.theveloper.pixelplay.BuildConfig.TELEGRAM_API_ID,
+                    com.theveloper.pixelplay.BuildConfig.TELEGRAM_API_HASH,
                     "en", // systemLanguageCode
                     android.os.Build.MODEL, // deviceModel
                     android.os.Build.VERSION.RELEASE, // systemVersion

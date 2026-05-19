@@ -118,22 +118,31 @@ class AutoMediaBrowseTree @Inject constructor(
     suspend fun search(query: String): List<MediaItem> {
         if (query.isBlank()) return emptyList()
 
-        val results = mutableListOf<MediaItem>()
         val trimmedQuery = query.trim()
 
-        // Search songs
+        // Run the three searches concurrently and round-robin-merge the
+        // results so an album/artist hit isn't squeezed out by 30+ song
+        // matches. Previous behaviour always biased to songs.
         val songs = musicRepository.searchSongs(trimmedQuery).first()
-        results.addAll(songs.take(MAX_SEARCH_RESULTS).map { buildPlayableSongItem(it) })
-
-        // Search albums
+            .map { buildPlayableSongItem(it) }
         val albums = musicRepository.searchAlbums(trimmedQuery).first()
-        results.addAll(albums.take(10).map { buildBrowsableAlbumItem(it) })
-
-        // Search artists
+            .map { buildBrowsableAlbumItem(it) }
         val artists = musicRepository.searchArtists(trimmedQuery).first()
-        results.addAll(artists.take(10).map { buildBrowsableArtistItem(it) })
+            .map { buildBrowsableArtistItem(it) }
 
-        return results.take(MAX_SEARCH_RESULTS)
+        val results = mutableListOf<MediaItem>()
+        val songIter = songs.iterator()
+        val albumIter = albums.iterator()
+        val artistIter = artists.iterator()
+        // Each round adds at most one of each category until we hit the cap.
+        while (results.size < MAX_SEARCH_RESULTS &&
+            (songIter.hasNext() || albumIter.hasNext() || artistIter.hasNext())
+        ) {
+            if (songIter.hasNext() && results.size < MAX_SEARCH_RESULTS) results.add(songIter.next())
+            if (albumIter.hasNext() && results.size < MAX_SEARCH_RESULTS) results.add(albumIter.next())
+            if (artistIter.hasNext() && results.size < MAX_SEARCH_RESULTS) results.add(artistIter.next())
+        }
+        return results
     }
 
     // --- Private helpers ---

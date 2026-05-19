@@ -15,10 +15,15 @@ import kotlinx.coroutines.flow.combine
 private val SONG_SEARCH_QUERY_TOKEN_REGEX = Regex("""[\p{L}\p{N}]+""")
 private const val EMPTY_SONG_SEARCH_MATCH_QUERY = "pixelplayemptyquery*"
 
+// Defensive cap on individual token length. Without a cap, the FTS query
+// builder can be fed multi-kilobyte pasted strings that turn the search
+// into an effectively unbounded SQLite scan.
+private const val MAX_FTS_TOKEN_LENGTH = 64
+
 private fun buildSongTitleSearchMatchQuery(query: String): String {
     val tokens = SONG_SEARCH_QUERY_TOKEN_REGEX
         .findAll(query)
-        .map { it.value.trim() }
+        .map { it.value.trim().take(MAX_FTS_TOKEN_LENGTH) }
         .filter { it.isNotEmpty() }
         .take(6)
         .toList()
@@ -31,7 +36,7 @@ private fun buildSongTitleSearchMatchQuery(query: String): String {
 private fun buildSongSearchMatchQuery(query: String): String {
     val tokens = SONG_SEARCH_QUERY_TOKEN_REGEX
         .findAll(query)
-        .map { it.value.trim() }
+        .map { it.value.trim().take(MAX_FTS_TOKEN_LENGTH) }
         .filter { it.isNotEmpty() }
         .take(6)
         .toList()
@@ -1832,13 +1837,27 @@ interface MusicDao {
 
     companion object {
         /**
-         * SQLite has a limit on the number of variables per statement (default 999, higher in newer versions).
+         * SQLite per-statement variable limit. Android's bundled SQLite raised
+         * this to 32766 from API 31 onward (Room 2.6+). We pick the larger
+         * value when the runtime supports it so cross-ref inserts use far
+         * fewer chunks during initial sync (~33x fewer transactions on large
+         * libraries).
+         *
          * Each SongArtistCrossRef insert uses 3 variables (songId, artistId, isPrimary).
-         * The batch size is calculated so that batchSize * 3 <= SQLITE_MAX_VARIABLE_NUMBER.
          */
-        private const val SQLITE_MAX_VARIABLE_NUMBER = 999 // Increase if you know your SQLite version supports more
+        private const val SQLITE_MAX_VARIABLE_NUMBER_LEGACY = 999
+        private const val SQLITE_MAX_VARIABLE_NUMBER_MODERN = 32_000
+        private val SQLITE_MAX_VARIABLE_NUMBER: Int =
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                SQLITE_MAX_VARIABLE_NUMBER_MODERN
+            } else {
+                SQLITE_MAX_VARIABLE_NUMBER_LEGACY
+            }
         private const val CROSS_REF_FIELDS_PER_OBJECT = 3
         val CROSS_REF_BATCH_SIZE: Int = SQLITE_MAX_VARIABLE_NUMBER / CROSS_REF_FIELDS_PER_OBJECT
+        // Single-column `IN (…)` deletions only consume one variable per row,
+        // so the chunk size for those can be ~3x larger than the cross-ref insert.
+        val DELETE_IN_BATCH_SIZE: Int = SQLITE_MAX_VARIABLE_NUMBER
 
         /**
          * Batch size for song inserts during incremental sync.

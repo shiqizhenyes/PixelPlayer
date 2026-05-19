@@ -113,7 +113,10 @@ class MusicRepositoryImplTest {
 
             favoritesDao = mockFavoritesDao,
             artistImageRepository = mockArtistImageRepository,
-            folderTreeBuilder = mockk(relaxed = true)
+            folderTreeBuilder = mockk(relaxed = true),
+            appScope = kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Unconfined
+            ),
         )
     }
 

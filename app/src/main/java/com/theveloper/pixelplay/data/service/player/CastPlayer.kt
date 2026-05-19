@@ -9,7 +9,6 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
-import android.util.Log
 import androidx.core.net.toUri
 import androidx.media3.common.MimeTypes
 import androidx.media3.decoder.ffmpeg.FfmpegLibrary
@@ -137,12 +136,14 @@ class CastPlayer(
                     val isInvalidRequest = result.status.statusMessage
                         ?.contains("Invalid Request", ignoreCase = true) == true
                     if (isInvalidRequest) {
-                        Log.e(
-                            "PX_CAST_CMD",
-                            "Invalid Request command=${queuedCommand.name} status=${result.status.statusCode} msg=${result.status.statusMessage}"
+                        // Project convention: route through Timber. Release-build
+                        // log filtering then operates uniformly across the codebase.
+                        Timber.tag("PX_CAST_CMD").e(
+                            "Invalid Request command=%s status=%d msg=%s",
+                            queuedCommand.name,
+                            result.status.statusCode,
+                            result.status.statusMessage
                         )
-                    }
-                    if (isInvalidRequest) {
                         Timber.w(
                             "Cast command invalid request: %s (%s/%d)",
                             queuedCommand.name,
@@ -166,9 +167,11 @@ class CastPlayer(
                 }
 
                 if (!result.status.isSuccess) {
-                    Log.e(
-                        "PX_CAST_CMD",
-                        "Command failed command=${queuedCommand.name} status=${result.status.statusCode} msg=${result.status.statusMessage}"
+                    Timber.tag("PX_CAST_CMD").e(
+                        "Command failed command=%s status=%d msg=%s",
+                        queuedCommand.name,
+                        result.status.statusCode,
+                        result.status.statusMessage
                     )
                     Timber.w(
                         "Cast command failed: %s (%s/%d)",
@@ -293,9 +296,9 @@ class CastPlayer(
                             val alacDecoderAvailable = isAlacTranscodeSupported()
                             val forcedMime = if (alacDecoderAvailable) "audio/aac" else "audio/mp4"
                             forcedMimeBySongId[song.id] = forcedMime
-                            Log.i(
-                                "PX_CAST_QLOAD",
-                                "alac_probe songId=${song.id} rawCodec=audio/alac forcedMime=$forcedMime decoderAvailable=$alacDecoderAvailable nonce=$queueLoadNonce"
+                            Timber.tag("PX_CAST_QLOAD").i(
+                                "alac_probe songId=%s rawCodec=audio/alac forcedMime=%s decoderAvailable=%s nonce=%s",
+                                song.id, forcedMime, alacDecoderAvailable, queueLoadNonce
                             )
                             continue
                         }
@@ -309,9 +312,9 @@ class CastPlayer(
                             val flacDecoderAvailable = isFlacTranscodeSupported()
                             val forcedMime = if (flacDecoderAvailable) "audio/aac" else "audio/flac"
                             forcedMimeBySongId[song.id] = forcedMime
-                            Log.i(
-                                "PX_CAST_QLOAD",
-                                "flac_probe songId=${song.id} rawCodec=audio/flac forcedMime=$forcedMime decoderAvailable=$flacDecoderAvailable nonce=$queueLoadNonce"
+                            Timber.tag("PX_CAST_QLOAD").i(
+                                "flac_probe songId=%s rawCodec=audio/flac forcedMime=%s decoderAvailable=%s nonce=%s",
+                                song.id, forcedMime, flacDecoderAvailable, queueLoadNonce
                             )
                             continue
                         }
@@ -336,9 +339,10 @@ class CastPlayer(
                             }
                             val resolverMime = contentResolver
                                 ?.let { resolver -> runCatching { resolver.getType(song.contentUriString.toUri()) }.getOrNull() }
-                            Log.i(
-                                "PX_CAST_QLOAD",
-                                "start_probe songId=${song.id} songMime=${song.mimeType} resolverMime=$resolverMime rawExtractorMime=$rawExtractorMime retrieverMime=$retrieverMime signatureMime=$signatureMime forcedMime=$forcedMime nonce=$queueLoadNonce"
+                            Timber.tag("PX_CAST_QLOAD").i(
+                                "start_probe songId=%s songMime=%s resolverMime=%s rawExtractorMime=%s retrieverMime=%s signatureMime=%s forcedMime=%s nonce=%s",
+                                song.id, song.mimeType, resolverMime, rawExtractorMime,
+                                retrieverMime, signatureMime, forcedMime, queueLoadNonce
                             )
                         }
                         // Non-start, non-ALAC M4A: no forced override needed. resolveCastContentType()
@@ -365,9 +369,9 @@ class CastPlayer(
                                 autoPlay,
                                 serverAddress
                             )
-                            Log.i(
-                                "PX_CAST_QLOAD",
-                                "start size=${songs.size} startIndex=$safeStartIndex songId=${startSong?.id} autoPlay=$autoPlay nonce=$queueLoadNonce"
+                            Timber.tag("PX_CAST_QLOAD").i(
+                                "start size=%d startIndex=%d songId=%s autoPlay=%s nonce=%s",
+                                songs.size, safeStartIndex, startSong?.id, autoPlay, queueLoadNonce
                             )
                             logQueueDiagnostics(
                                 songs = songs,
@@ -403,9 +407,9 @@ class CastPlayer(
                                         result.status.statusCode,
                                         result.status.statusMessage
                                     )
-                                    Log.i(
-                                        "PX_CAST_QLOAD",
-                                        "success status=${result.status.statusCode} msg=${result.status.statusMessage}"
+                                    Timber.tag("PX_CAST_QLOAD").i(
+                                        "success status=%d msg=%s",
+                                        result.status.statusCode, result.status.statusMessage
                                     )
                                     if (!autoPlay) {
                                         // queueLoad typically starts playback by default; explicitly pause when caller requests no autoplay.
@@ -423,9 +427,12 @@ class CastPlayer(
                                         startSong?.id,
                                         songs.size
                                     )
-                                    Log.e(
-                                        "PX_CAST_QLOAD",
-                                        "failed status=${result.status.statusCode} msg=${result.status.statusMessage} songId=${startSong?.id} size=${songs.size}"
+                                    Timber.tag("PX_CAST_QLOAD").e(
+                                        "failed status=%d msg=%s songId=%s size=%d",
+                                        result.status.statusCode,
+                                        result.status.statusMessage,
+                                        startSong?.id,
+                                        songs.size
                                     )
                                     onComplete(false, failureDetail)
                                 }
@@ -1076,9 +1083,11 @@ class CastPlayer(
                     mediaUrl,
                     artUrl
                 )
-                Log.i(
-                    "PX_CAST_QLOAD",
-                    "item index=$index songId=${song.id} mimeRaw=${song.mimeType} mimeSent=$sentMime mimeForced=${forcedMimeBySongId.containsKey(song.id)} durationHintMs=${song.duration.coerceAtLeast(0L)} streamDurationSentMs=${MediaInfo.UNKNOWN_DURATION}"
+                Timber.tag("PX_CAST_QLOAD").i(
+                    "item index=%d songId=%s mimeRaw=%s mimeSent=%s mimeForced=%s durationHintMs=%d streamDurationSentMs=%d",
+                    index, song.id, song.mimeType, sentMime,
+                    forcedMimeBySongId.containsKey(song.id),
+                    song.duration.coerceAtLeast(0L), MediaInfo.UNKNOWN_DURATION
                 )
             }
     }

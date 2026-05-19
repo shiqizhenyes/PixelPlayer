@@ -864,15 +864,13 @@ class MusicService : MediaLibraryService() {
             return true
         }
 
-        val hasWearHints = controller.connectionHints.keySet().any { key ->
+        // If hints identify a Wear/remote controller and it's not our app package,
+        // reject to avoid the default Wear system media player hijacking the session.
+        return controller.connectionHints.keySet().any { key ->
             WEAR_HINT_KEY_MARKERS.any { marker ->
                 key.contains(marker, ignoreCase = true)
             }
         }
-        return hasWearHints
-        // If hints identify a Wear/remote controller and it's not our app package,
-        // reject to avoid the default Wear system media player hijacking the session.
-        return true
     }
 
     private fun createSleepTimerPendingIntent(): PendingIntent {
@@ -1639,6 +1637,11 @@ class MusicService : MediaLibraryService() {
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        // Always call super so the MediaLibraryService parent handles its
+        // session/notification bookkeeping for the removed task before we
+        // decide whether to stop the service.
+        super.onTaskRemoved(rootIntent)
+
         val player = mediaSession?.player
         val allowBackground = keepPlayingInBackground
 
@@ -1653,9 +1656,7 @@ class MusicService : MediaLibraryService() {
             stopPlaybackAndUnload(
                 reason = "task_removed_not_playing"
             )
-            return
         }
-        super.onTaskRemoved(rootIntent)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
@@ -1720,7 +1721,13 @@ class MusicService : MediaLibraryService() {
             }
         }
 
-        audioManager.registerAudioDeviceCallback(callback, null)
+        // Pass an explicit Main-looper Handler. With null, the framework
+        // delivers callbacks on the binder thread, and `maybeResumeAfterHeadsetReconnect`
+        // touches the MediaController / ExoPlayer which must be called on Main.
+        audioManager.registerAudioDeviceCallback(
+            callback,
+            android.os.Handler(android.os.Looper.getMainLooper())
+        )
         headsetReconnectCallback = callback
     }
 

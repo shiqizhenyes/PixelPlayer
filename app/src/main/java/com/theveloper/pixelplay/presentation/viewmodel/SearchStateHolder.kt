@@ -37,6 +37,7 @@ import kotlinx.coroutines.FlowPreview
 @Singleton
 class SearchStateHolder @Inject constructor(
     private val musicRepository: MusicRepository,
+    @com.theveloper.pixelplay.di.AppScope private val appScope: CoroutineScope,
 ) {
     private companion object {
         const val SEARCH_DEBOUNCE_MS = 300L
@@ -63,21 +64,29 @@ class SearchStateHolder @Inject constructor(
     )
     private val latestSearchRequestId = AtomicLong(0L)
 
-    private var scope: CoroutineScope? = null
+    // Use @AppScope so the search-request observer and history loads survive
+    // ViewModel teardown. The caller still invokes initialize(scope) for
+    // call-site compatibility but the parameter is ignored — there is no
+    // window where scope can be null between onCleared() and the next
+    // initialize().
+    private val scope: CoroutineScope get() = appScope
     private var searchJob: Job? = null
 
     /**
-     * Initialize with ViewModel scope.
+     * Idempotent initialization. The scope parameter is ignored — see field
+     * comment above.
      */
-    fun initialize(scope: CoroutineScope) {
-        this.scope = scope
+    fun initialize(@Suppress("UNUSED_PARAMETER") scope: CoroutineScope) {
         observeSearchRequests()
     }
 
     @OptIn(FlowPreview::class)
     private fun observeSearchRequests() {
+        // observeSearchRequests is only invoked once from initialize(), so the
+        // searchJob?.cancel() below is unreachable in practice. Keep it
+        // defensively in case future code re-initializes the holder.
         searchJob?.cancel()
-        searchJob = scope?.launch {
+        searchJob = scope.launch {
             searchRequests
                 .debounce(SEARCH_DEBOUNCE_MS)
                 .collectLatest { request ->
@@ -92,8 +101,11 @@ class SearchStateHolder @Inject constructor(
 
                     try {
                         val currentFilter = _selectedSearchFilter.value
+                        // collectLatest auto-cancels the prior collector on every
+                        // new emission, so the request-id staleness guard inside
+                        // the inner collect was redundant and only added noise.
+                        // Outer collectLatest already handles supersession.
                         musicRepository.searchAll(normalizedQuery, currentFilter).collect { resultsList ->
-                            // Sort: prioritize Song/Album matches over Artist/Playlist matches
                             val sortedResults = resultsList.sortedWith(
                                 compareBy { result ->
                                     when (result) {
@@ -105,10 +117,6 @@ class SearchStateHolder @Inject constructor(
                                 }
                             )
 
-                            if (request.requestId != latestSearchRequestId.get()) {
-                                return@collect
-                            }
-
                             val immutableResults = sortedResults.toImmutableList()
                             if (_searchResults.value != immutableResults) {
                                 _searchResults.value = immutableResults
@@ -117,10 +125,8 @@ class SearchStateHolder @Inject constructor(
                     } catch (_: CancellationException) {
                         // Superseded by a newer query; ignore.
                     } catch (e: Exception) {
-                        if (request.requestId == latestSearchRequestId.get()) {
-                            Timber.e(e, "Error performing search for query: $normalizedQuery")
-                            _searchResults.value = persistentListOf()
-                        }
+                        Timber.e(e, "Error performing search for query: $normalizedQuery")
+                        _searchResults.value = persistentListOf()
                     }
                 }
         }
@@ -131,7 +137,7 @@ class SearchStateHolder @Inject constructor(
     }
 
     fun loadSearchHistory(limit: Int = 15) {
-        scope?.launch {
+        scope.launch {
             try {
                 val history = withContext(Dispatchers.IO) {
                     musicRepository.getRecentSearchHistory(limit)
@@ -144,7 +150,7 @@ class SearchStateHolder @Inject constructor(
     }
 
     fun onSearchQuerySubmitted(query: String) {
-        scope?.launch {
+        scope.launch {
             if (query.isNotBlank()) {
                 try {
                     withContext(Dispatchers.IO) {
@@ -161,19 +167,22 @@ class SearchStateHolder @Inject constructor(
     fun performSearch(query: String) {
         val normalizedQuery = query.trim()
 
-        val requestId = latestSearchRequestId.incrementAndGet()
-
+        // Only bump the request id for non-blank queries so the counter
+        // doesn't accumulate "ticks" for empty-input keystrokes that don't
+        // actually drive a search.
         if (normalizedQuery.isBlank()) {
             if (_searchResults.value.isNotEmpty()) {
                 _searchResults.value = persistentListOf()
             }
+            return
         }
 
+        val requestId = latestSearchRequestId.incrementAndGet()
         searchRequests.tryEmit(SearchRequest(normalizedQuery, requestId))
     }
 
     fun deleteSearchHistoryItem(query: String) {
-        scope?.launch {
+        scope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     musicRepository.deleteSearchHistoryItemByQuery(query)
@@ -186,7 +195,7 @@ class SearchStateHolder @Inject constructor(
     }
 
     fun clearSearchHistory() {
-        scope?.launch {
+        scope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     musicRepository.clearSearchHistory()
@@ -199,7 +208,10 @@ class SearchStateHolder @Inject constructor(
     }
 
     fun onCleared() {
+        // scope is now @AppScope; only the per-session searchJob is cancelled.
+        // The holder remains usable for the next VM session — initialize()
+        // will simply re-launch observeSearchRequests.
         searchJob?.cancel()
-        scope = null
+        searchJob = null
     }
 }

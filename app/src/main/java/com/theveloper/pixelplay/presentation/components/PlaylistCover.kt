@@ -36,7 +36,7 @@ import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 @Composable
 fun PlaylistCover(
     playlist: Playlist,
-    playlistSongs: List<Song>,
+    playlistSongs: kotlinx.collections.immutable.ImmutableList<Song>,
     modifier: Modifier = Modifier,
     size: Dp = 48.dp
 ) {

@@ -68,13 +68,18 @@ class ArtistImageRepository @Inject constructor(
     
     // Mutex to prevent duplicate API calls for the same artist
     private val fetchMutex = Mutex()
-    private val pendingFetches = mutableSetOf<String>()
-    
+    // Concurrent set so reads outside fetchMutex (e.g. failedFetches.contains in
+    // getArtistImageUrl and the prefetch loop) cannot race with writes from
+    // fetchAndCacheArtistImage and throw ConcurrentModificationException.
+    private val pendingFetches: MutableSet<String> =
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
+
     // Semaphore to limit concurrent API calls during prefetch
     private val prefetchSemaphore = Semaphore(PREFETCH_CONCURRENCY)
-    
+
     // Set to track artists for whom image fetching failed (e.g. not found), to avoid retrying in the same session
-    private val failedFetches = mutableSetOf<String>()
+    private val failedFetches: MutableSet<String> =
+        java.util.Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap())
 
     /**
      * Get artist image URL, fetching from Deezer if not cached.

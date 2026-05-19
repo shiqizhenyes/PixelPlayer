@@ -72,16 +72,20 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
     }
     
     override suspend fun getAvailableModels(apiKey: String): List<String> {
-        // Models are usually fetched via HTTP as the SDK doesn't expose a listing method
+        // Models are usually fetched via HTTP as the SDK doesn't expose a listing method.
+        // The API key is sent via the x-goog-api-key header instead of as a URL query
+        // parameter so it cannot leak to HTTP logs, MITM proxies, or
+        // okhttp3.HttpLoggingInterceptor traces.
         return withContext(Dispatchers.IO) {
             try {
-                val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey"
+                val url = "https://generativelanguage.googleapis.com/v1beta/models"
                 val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                
+
                 connection.requestMethod = "GET"
+                connection.setRequestProperty("x-goog-api-key", apiKey)
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
-                
+
                 val responseCode = connection.responseCode
                 if (responseCode == 200) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }

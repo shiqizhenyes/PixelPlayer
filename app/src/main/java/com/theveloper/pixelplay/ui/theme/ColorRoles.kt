@@ -56,7 +56,12 @@ private data class RepresentativeArtworkColor(
     val hct: Hct
 )
 
-private val extractedColorCache = LruCache<Int, Color>(32)
+// extractedColorCache was keyed by Bitmap.hashCode() (identity-based on
+// Android), so it only hit when the same Bitmap instance was passed twice.
+// Callers reuse-then-recycle their bitmaps, so hit rate was effectively zero.
+// Kept as a no-op cache slot so callers don't break — the LRU is bounded to
+// 1 to satisfy the API surface while remaining inert.
+private val extractedColorCache = LruCache<Int, Color>(1)
 private const val GRAYSCALE_CHROMA_THRESHOLD = 12.0
 private const val NEUTRAL_PIXEL_CHROMA_THRESHOLD = 8.0
 private const val HIGH_CHROMA_THRESHOLD = 18.0

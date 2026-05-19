@@ -10,13 +10,20 @@ import com.theveloper.pixelplay.data.ai.AiPlaylistGenerator
 import com.theveloper.pixelplay.data.ai.SongMetadata
 import com.theveloper.pixelplay.data.ai.AiSystemPromptType
 import com.theveloper.pixelplay.data.ai.provider.AiProviderException
+import com.theveloper.pixelplay.data.preferences.AiPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.PlaylistPreferencesRepository
 import com.theveloper.pixelplay.data.model.Song
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -33,9 +40,65 @@ class AiStateHolder @Inject constructor(
     private val aiMetadataGenerator: AiMetadataGenerator,
     private val dailyMixManager: DailyMixManager,
     private val playlistPreferencesRepository: PlaylistPreferencesRepository,
+    private val aiPreferencesRepository: AiPreferencesRepository,
     private val dailyMixStateHolder: DailyMixStateHolder,
-    private val notificationManager: AiNotificationManager
+    private val notificationManager: AiNotificationManager,
+    @com.theveloper.pixelplay.di.AppScope private val appScope: CoroutineScope,
 ) {
+
+    /**
+     * True when the user has configured an API key for whichever AI provider
+     * is currently selected. Moved here from PlayerViewModel — the 9-arg
+     * combine over per-provider key flows belonged with the AI state, not in
+     * the god-VM. PlayerViewModel exposes a thin delegate.
+     */
+    val hasGeminiApiKey: StateFlow<Boolean> = aiPreferencesRepository.geminiApiKey
+        .map { it.isNotBlank() }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = appScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = false
+        )
+
+    val hasActiveAiProviderApiKey: StateFlow<Boolean> = combine(
+        aiPreferencesRepository.aiProvider,
+        aiPreferencesRepository.geminiApiKey,
+        aiPreferencesRepository.deepseekApiKey,
+        aiPreferencesRepository.groqApiKey,
+        aiPreferencesRepository.mistralApiKey,
+        aiPreferencesRepository.nvidiaApiKey,
+        aiPreferencesRepository.kimiApiKey,
+        aiPreferencesRepository.glmApiKey,
+        aiPreferencesRepository.openaiApiKey
+    ) { values ->
+        val provider = values[0]
+        val gemini = values[1]
+        val deepseek = values[2]
+        val groq = values[3]
+        val mistral = values[4]
+        val nvidia = values[5]
+        val kimi = values[6]
+        val glm = values[7]
+        val openai = values[8]
+        when (provider) {
+            "DEEPSEEK" -> deepseek.isNotBlank()
+            "GROQ" -> groq.isNotBlank()
+            "MISTRAL" -> mistral.isNotBlank()
+            "NVIDIA" -> nvidia.isNotBlank()
+            "KIMI" -> kimi.isNotBlank()
+            "GLM" -> glm.isNotBlank()
+            "OPENAI" -> openai.isNotBlank()
+            else -> gemini.isNotBlank()
+        }
+    }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = appScope,
+            started = SharingStarted.WhileSubscribed(5000L),
+            initialValue = false
+        )
+
     // State
     // AI State Management: Observables for tracking background generation progress
     private val _showAiPlaylistSheet = MutableStateFlow(false)
@@ -67,7 +130,13 @@ class AiStateHolder @Inject constructor(
     private var _lastMetadataSong: Song? = null
     private var _lastMetadataFields: List<String>? = null
 
-    private var scope: CoroutineScope? = null
+    // Use the app-wide scope so AI generation jobs aren't cancelled when the
+    // ViewModel that triggered them is cleared mid-generation (config change
+    // while "Generating…" is on screen). The Singleton-lifecycle hazard
+    // flagged in CODEBASE_REVIEW.md (scope = null after onCleared but the
+    // generation job still wants to set _isGeneratingAiPlaylist back to
+    // false) is removed because the scope is always alive.
+    private val scope: CoroutineScope get() = appScope
     private var allSongsProvider: (suspend () -> List<Song>)? = null
     private var favoriteSongIdsProvider: (() -> Set<String>)? = null
     
@@ -94,7 +163,9 @@ class AiStateHolder @Inject constructor(
         playSongsCallback: (List<Song>, Song, String) -> Unit,
         openPlayerSheetCallback: () -> Unit
     ) {
-        this.scope = scope
+        // scope is now backed by @AppScope; the parameter is retained for
+        // call-site compatibility but ignored. The fields below are the
+        // ones that genuinely need rebinding per VM session.
         this.allSongsProvider = allSongsProvider
         this.favoriteSongIdsProvider = favoriteSongIdsProvider
         this.toastEmitter = toastEmitter
@@ -126,7 +197,7 @@ class AiStateHolder @Inject constructor(
         val song = _lastMetadataSong ?: return
         val fields = _lastMetadataFields ?: return
         
-        scope?.launch {
+        scope.launch {
             generateAiMetadata(song, fields)
         }
     }
@@ -150,7 +221,6 @@ class AiStateHolder @Inject constructor(
         _lastMinLength = minLength
         _lastMaxLength = maxLength
 
-        val scope = this.scope ?: return
 
         scope.launch {
             val allSongs = allSongsProvider?.invoke() ?: emptyList()
@@ -247,7 +317,6 @@ class AiStateHolder @Inject constructor(
      * Uses the current mix as a vibe seed and applies AI filters to find similar tracks.
      */
     fun regenerateDailyMixWithPrompt(prompt: String) {
-        val scope = this.scope ?: return
         val currentDailyMixSongs = dailyMixStateHolder.dailyMixSongs.value
 
         scope.launch {
@@ -340,7 +409,7 @@ class AiStateHolder @Inject constructor(
     }
 
     fun onCleared() {
-        scope = null
+        // scope is now @AppScope; only the per-VM callback bindings clear.
         allSongsProvider = null
         favoriteSongIdsProvider = null
         toastEmitter = null

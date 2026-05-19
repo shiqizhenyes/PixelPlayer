@@ -86,8 +86,15 @@ class MediaStorePagingSource(
         val songs = mutableListOf<Song>()
         if (ids.isEmpty()) return songs
 
-        val selection = "${MediaStore.Audio.Media._ID} IN (${ids.joinToString(",")})"
-        
+        // Use parameterized placeholders instead of inlining the comma-joined
+        // ids into the selection string. Even though MediaStore IDs are Long
+        // (no injection risk), ? placeholders are the canonical pattern and
+        // make SQLite query plan caching effective when the same selection
+        // shape is repeated.
+        val placeholders = ids.joinToString(",") { "?" }
+        val selection = "${MediaStore.Audio.Media._ID} IN ($placeholders)"
+        val selectionArgs = ids.map { it.toString() }.toTypedArray()
+
         val projection = arrayOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
@@ -108,7 +115,7 @@ class MediaStorePagingSource(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
             projection,
             selection,
-            null,
+            selectionArgs,
             null // Order doesn't matter here, we sort in memory
         )?.use { cursor ->
             val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
