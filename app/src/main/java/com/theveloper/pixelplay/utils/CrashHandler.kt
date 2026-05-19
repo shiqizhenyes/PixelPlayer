@@ -73,8 +73,15 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
 
     private fun saveCrashLog(throwable: Throwable) {
         val timestamp = System.currentTimeMillis()
-        val stackTrace = getStackTraceString(throwable)
-        val exceptionMessage = throwable.message ?: throwable.javaClass.simpleName
+        val rawStackTrace = getStackTraceString(throwable)
+        val rawExceptionMessage = throwable.message ?: throwable.javaClass.simpleName
+
+        // Throwable messages from network / media stacks routinely embed
+        // bearer tokens, salted Subsonic params, Google API keys, and the
+        // user's Telegram phone number. Redact before persisting so the
+        // share-intent in CrashReportDialog cannot leak them outward.
+        val stackTrace = CrashLogRedactor.redact(rawStackTrace)
+        val exceptionMessage = CrashLogRedactor.redact(rawExceptionMessage)
 
         // Use commit() instead of apply() to ensure data is written synchronously
         // before the process terminates
@@ -110,8 +117,13 @@ object CrashHandler : Thread.UncaughtExceptionHandler {
         if (!hasCrashLog()) return null
 
         val timestamp = prefs.getLong(KEY_TIMESTAMP, 0)
-        val exceptionMessage = prefs.getString(KEY_EXCEPTION_MESSAGE, "Unknown error") ?: "Unknown error"
-        val stackTrace = prefs.getString(KEY_STACK_TRACE, "") ?: ""
+        val rawExceptionMessage = prefs.getString(KEY_EXCEPTION_MESSAGE, "Unknown error") ?: "Unknown error"
+        val rawStackTrace = prefs.getString(KEY_STACK_TRACE, "") ?: ""
+        // Defensively redact again on read so any crash entry persisted by
+        // an older build (before redaction landed) is sanitized before the
+        // share-intent surface in CrashReportDialog sees it.
+        val exceptionMessage = CrashLogRedactor.redact(rawExceptionMessage)
+        val stackTrace = CrashLogRedactor.redact(rawStackTrace)
 
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
         val formattedDate = dateFormat.format(Date(timestamp))

@@ -30,7 +30,15 @@
         android:maxSdkVersion="30" />
     <!-- For disabling battery optimization -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- USE_EXACT_ALARM is the preferred permission for alarm-clock / timer use
+         cases on API 33+. It is auto-granted with a Play Console justification
+         (sleep timer). SCHEDULE_EXACT_ALARM remains for API 31-32 where
+         USE_EXACT_ALARM does not exist; the user is prompted via the system
+         settings flow on those API levels. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
 
     <application
         android:name=".PixelPlayApplication"
@@ -151,7 +159,6 @@
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
                 <action android:name="androidx.media3.session.MediaLibraryService" />
-                <action android:name="android.intent.action.MEDIA_BUTTON" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.APP_MUSIC" />
             </intent-filter>
