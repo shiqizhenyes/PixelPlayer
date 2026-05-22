@@ -1276,6 +1276,9 @@ private fun QueueHeader(
     modifier: Modifier = Modifier,
     onLocateCurrentSong: () -> Unit = {}
 ) {
+    val view = LocalView.current
+    val appHapticsConfig = LocalAppHapticsConfig.current
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -1290,6 +1293,11 @@ private fun QueueHeader(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
+                    performAppCompatHapticFeedback(
+                        view,
+                        appHapticsConfig,
+                        HapticFeedbackConstantsCompat.GESTURE_START
+                    )
                     onLocateCurrentSong()
                 },
                 text = stringResource(R.string.presentation_batch_e_next_up),
