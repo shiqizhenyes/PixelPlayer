@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +62,8 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Piano
 import androidx.compose.material.icons.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Speaker
+import androidx.compose.material.icons.rounded.Crop
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -67,6 +71,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -81,6 +86,12 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -100,6 +111,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -119,7 +131,6 @@ import androidx.compose.material3.FilterChipDefaults
 import com.theveloper.pixelplay.utils.shapes.RoundedStarShape
 import com.theveloper.pixelplay.utils.resolvePlaylistCoverContentColor
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.unit.LayoutDirection
@@ -135,10 +146,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.TransformOrigin
@@ -351,29 +360,36 @@ private fun CreatePlaylistContent(
     ) { uri: Uri? ->
         uri?.let {
             selectedImageUri = it
+            cropScale = 1f
+            cropOffset = androidx.compose.ui.geometry.Offset.Zero
             showCropUi = true
         }
     }
     
-    // Back Handler for Step 2
-    BackHandler(enabled = currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL) {
-        currentStep = 0
+    // Back Handler for navigation flow
+    BackHandler(enabled = showCropUi || (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {
+        when {
+            showCropUi -> showCropUi = false
+            currentStep == 1 -> currentStep = 0
+        }
     }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    AnimatedContent(targetState = currentStep, label = "Title Animation") { step ->
+                    AnimatedContent(targetState = if (showCropUi) 2 else currentStep, label = "Title Animation") { displayStep ->
                         Text(
-                            if (step == 0) {
-                                if (creationMode == PlaylistCreationMode.SMART) {
-                                    stringResource(R.string.presentation_batch_f_new_smart_playlist)
-                                } else {
-                                    stringResource(R.string.presentation_batch_f_new_playlist)
+                            when (displayStep) {
+                                2 -> stringResource(R.string.presentation_batch_f_edit_cover_title)
+                                0 -> {
+                                    if (creationMode == PlaylistCreationMode.SMART) {
+                                        stringResource(R.string.presentation_batch_f_new_smart_playlist)
+                                    } else {
+                                        stringResource(R.string.presentation_batch_f_new_playlist)
+                                    }
                                 }
-                            } else {
-                                stringResource(R.string.presentation_batch_f_add_songs)
+                                else -> stringResource(R.string.presentation_batch_f_add_songs)
                             },
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontSize = 24.sp,
@@ -392,11 +408,15 @@ private fun CreatePlaylistContent(
                             contentColor = MaterialTheme.colorScheme.onSurface
                         ),
                         onClick = {
-                            if (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL) currentStep = 0 else onDismiss()
+                            when {
+                                showCropUi -> showCropUi = false
+                                currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL -> currentStep = 0
+                                else -> onDismiss()
+                            }
                         }
                     ) {
                         Icon(
-                            if (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL) {
+                            if (showCropUi || (currentStep == 1 && creationMode == PlaylistCreationMode.MANUAL)) {
                                 Icons.AutoMirrored.Rounded.ArrowBack
                             } else {
                                 Icons.Rounded.Close
@@ -680,7 +700,8 @@ private fun CreatePlaylistContent(
                      onCreationModeChange = { creationMode = it },
                      selectedSmartRule = selectedSmartRule,
                      onSmartRuleChange = { selectedSmartRule = it },
-                     onGenerateClick = onGenerateClick
+                     onGenerateClick = onGenerateClick,
+                     onImageUriChange = { selectedImageUri = it }
                  )
             } else {
                 SongPickerSelectionPane(
@@ -784,9 +805,15 @@ fun EditPlaylistContent(
     ) { uri: Uri? ->
         uri?.let {
             selectedImageUri = it
+            cropScale = 1f
+            cropOffset = androidx.compose.ui.geometry.Offset.Zero
             showCropUi = true
             selectedTab = 1 // Force switch to image tab
         }
+    }
+
+    BackHandler(enabled = showCropUi) {
+        showCropUi = false
     }
 
     Scaffold(
@@ -810,9 +837,14 @@ fun EditPlaylistContent(
                             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                             contentColor = MaterialTheme.colorScheme.onSurface
                         ),
-                        onClick = onDismiss
+                        onClick = {
+                            if (showCropUi) showCropUi = false else onDismiss()
+                        }
                     ) {
-                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.presentation_batch_f_cd_close))
+                        Icon(
+                            if (showCropUi) Icons.AutoMirrored.Rounded.ArrowBack else Icons.Rounded.Close,
+                            contentDescription = stringResource(if (showCropUi) R.string.presentation_batch_f_cd_back_or_cancel else R.string.presentation_batch_f_cd_close)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -904,7 +936,8 @@ fun EditPlaylistContent(
              creationMode = PlaylistCreationMode.MANUAL,
              onCreationModeChange = { },
              selectedSmartRule = SmartPlaylistRule.TOP_PLAYED,
-             onSmartRuleChange = { }
+             onSmartRuleChange = { },
+             onImageUriChange = { selectedImageUri = it }
          )
     }
 }
@@ -949,30 +982,75 @@ private fun PlaylistFormContent(
     onCreationModeChange: (PlaylistCreationMode) -> Unit,
     selectedSmartRule: SmartPlaylistRule,
     onSmartRuleChange: (SmartPlaylistRule) -> Unit,
-    onGenerateClick: (() -> Unit)? = null
+    onGenerateClick: (() -> Unit)? = null,
+    onImageUriChange: (Uri?) -> Unit
 ) {
-    if (showCropUi && imageBitmap != null) {
+    if (showCropUi) {
          // Fullscreen Crop UI overrides normal content
-         Box(modifier = modifier.fillMaxSize().padding(16.dp).clip(RoundedCornerShape(24.dp))) {
-             ImageCropView(
-                 imageBitmap = imageBitmap,
-                 modifier = Modifier.fillMaxSize(),
-                 scale = cropScale,
-                 pan = cropOffset,
-                 enabled = true,
-                 onCrop = { scale, pan -> 
-                     onCropScaleChange(scale)
-                     onCropOffsetChange(pan)
+         Box(
+             modifier = modifier
+                 .fillMaxSize()
+                 .padding(16.dp)
+                 .clip(RoundedCornerShape(24.dp))
+                 .background(MaterialTheme.colorScheme.surface)
+         ) {
+             if (imageBitmap != null) {
+                 Column(
+                     modifier = Modifier.fillMaxSize(),
+                     horizontalAlignment = Alignment.CenterHorizontally
+                 ) {
+                     Spacer(Modifier.height(32.dp))
+                     Text(
+                         text = stringResource(R.string.presentation_batch_f_adjust_cover_title),
+                         style = MaterialTheme.typography.headlineSmall,
+                         textAlign = TextAlign.Center,
+                         modifier = Modifier.padding(horizontal = 24.dp)
+                     )
+                     Spacer(Modifier.height(8.dp))
+                     Text(
+                         text = stringResource(R.string.presentation_batch_f_adjust_cover_hint),
+                         style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                         textAlign = TextAlign.Center,
+                         modifier = Modifier.padding(horizontal = 32.dp)
+                     )
+                     Spacer(Modifier.weight(1f))
+                     Box(
+                         modifier = Modifier
+                             .fillMaxWidth()
+                             .aspectRatio(1f)
+                             .padding(16.dp)
+                             .clip(RoundedCornerShape(32.dp))
+                     ) {
+                         ImageCropView(
+                             imageBitmap = imageBitmap,
+                             modifier = Modifier.fillMaxSize(),
+                             scale = cropScale,
+                             pan = cropOffset,
+                             enabled = true,
+                             onCrop = { scale, pan -> 
+                                 onCropScaleChange(scale)
+                                 onCropOffsetChange(pan)
+                             }
+                         )
+                     }
+                     Spacer(Modifier.weight(1f))
+                     Button(
+                        onClick = { onShowCropUiChange(false) },
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .padding(24.dp)
+                            .height(56.dp),
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Rounded.Check, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.presentation_batch_f_done))
+                    }
                  }
-             )
-             FilledIconButton(
-                onClick = { onShowCropUiChange(false) },
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp)
-            ) {
-                Icon(Icons.Rounded.Check, contentDescription = stringResource(R.string.presentation_batch_f_cd_confirm_crop))
-            }
+             } else {
+                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+             }
          }
          return
     }
@@ -1024,22 +1102,15 @@ private fun PlaylistFormContent(
                         }
                     }
                     1 -> { // Image
-                         // Image Preview (Read Only)
+                         // Image Preview
                          if (imageBitmap != null) {
-                             Box(
-                                modifier = Modifier
-                                    .size(180.dp)
-                                    .clip(RoundedCornerShape(32.dp))
-                                    .clickable { imagePickerLauncher.launch("image/*") }
-                             ) {
-                                 if (cropScale == 1f && cropOffset == androidx.compose.ui.geometry.Offset.Zero) {
-                                     AsyncImage(
-                                         model = selectedImageUri,
-                                         contentDescription = null,
-                                         modifier = Modifier.fillMaxSize(),
-                                         contentScale = ContentScale.Crop
-                                     )
-                                 } else {
+                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                 Box(
+                                    modifier = Modifier
+                                        .size(180.dp)
+                                        .clip(RoundedCornerShape(32.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                 ) {
                                      ImageCropView(
                                          imageBitmap = imageBitmap,
                                          modifier = Modifier.fillMaxSize(),
@@ -1048,6 +1119,34 @@ private fun PlaylistFormContent(
                                          enabled = false,
                                          onCrop = { _, _ -> }
                                      )
+                                 }
+                                 Spacer(Modifier.height(12.dp))
+                                 Row(
+                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                     modifier = Modifier.padding(horizontal = 16.dp)
+                                 ) {
+                                     FilledTonalButton(
+                                         onClick = { imagePickerLauncher.launch("image/*") },
+                                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                         modifier = Modifier.height(40.dp).weight(1f)
+                                     ) {
+                                         Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                                         Spacer(Modifier.width(8.dp))
+                                         Text(stringResource(R.string.presentation_batch_f_change), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                     }
+                                     Button(
+                                         onClick = { onImageUriChange(null) },
+                                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                         modifier = Modifier.height(40.dp).weight(1f),
+                                         colors = ButtonDefaults.buttonColors(
+                                             containerColor = MaterialTheme.colorScheme.error,
+                                             contentColor = MaterialTheme.colorScheme.onError
+                                         )
+                                     ) {
+                                         Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                                         Spacer(Modifier.width(8.dp))
+                                         Text(stringResource(R.string.presentation_batch_f_remove), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                     }
                                  }
                              }
                          } else {
@@ -1494,11 +1593,11 @@ fun ExpressiveButtonGroup(
         items.forEachIndexed { index, title ->
             val isSelected = selectedIndex == index
             val shape = if (isSelected) CircleShape else RoundedCornerShape(10.dp) // Pill vs RoundedRect
-            val containerColor by androidx.compose.animation.animateColorAsState(
+            val containerColor by animateColorAsState(
                 if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh,
                 label = "ButtonColor"
             )
-            val contentColor by androidx.compose.animation.animateColorAsState(
+            val contentColor by animateColorAsState(
                 if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 label = "ContentColor"
             )
@@ -1513,7 +1612,7 @@ fun ExpressiveButtonGroup(
                 contentAlignment = Alignment.Center
             ) {
                  Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                     androidx.compose.animation.AnimatedVisibility(visible = isSelected) {
+                     AnimatedVisibility(visible = isSelected) {
                          Icon(
                              Icons.Rounded.Check, 
                              contentDescription = null, 
