@@ -133,6 +133,7 @@ private const val MAX_ALBUM_BATCH_SELECTION = 6
 private const val SONG_ID_QUERY_CHUNK_SIZE = 900
 private const val HOME_MIX_PREVIEW_LIMIT = 48
 private const val EXTERNAL_SONG_ID_PREFIX = "external:"
+private val LOCAL_PLAYBACK_SCHEMES = setOf("content", "file", "android.resource")
 
 private fun List<Song>.toPlaybackQueue(): ImmutableList<Song> = when (this) {
     is PersistentList<Song> -> this
@@ -3202,7 +3203,12 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun beginPreparingSong(song: Song) {
-        setPreparingSong(song.id)
+        // Skip the "Preparing playback…" pill for local files: they reach STATE_READY
+        // in milliseconds, and transient STATE_BUFFERING from audio HAL/offload init
+        // (or a re-tap of an already-loaded song) can otherwise leave the pill stuck.
+        if (!isLocalPlaybackSong(song)) {
+            setPreparingSong(song.id)
+        }
         viewModelScope.launch(Dispatchers.IO) {
             val albumArtUri = song.albumArtUriString
             if (albumArtUri.isNullOrBlank()) {
@@ -3219,6 +3225,11 @@ class PlayerViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private fun isLocalPlaybackSong(song: Song): Boolean {
+        val scheme = MediaItemBuilder.playbackUri(song).scheme?.lowercase()
+        return scheme == null || scheme in LOCAL_PLAYBACK_SCHEMES
     }
 
     private fun clearPreparingSongIfMatching(mediaId: String? = null) {
