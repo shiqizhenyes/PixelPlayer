@@ -67,6 +67,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -1699,33 +1701,30 @@ private fun PlayerProgressBarSection(
     )
 
     var sliderDragValue by remember { mutableStateOf<Float?>(null) }
-    // Optimistic Seek: Holds the target position immediately after seek to prevent snap-back
-    var optimisticPosition by remember { mutableStateOf<Long?>(null) }
+    // Held seek target (fraction) — mirrors PlayerSeekBar so the slider stays where the user
+    // dropped it until real playback catches up. Fraction-based so it survives duration drift.
+    var targetSeekFraction by remember { mutableFloatStateOf(-1f) }
+    var lastSeekFinishedTime by remember { mutableLongStateOf(0L) }
 
-    // Reset seek state on song change to avoid stale position from previous song
+    // Reset seek state on song change to avoid stale position from previous song.
     LaunchedEffect(songId) {
         sliderDragValue = null
-        optimisticPosition = null
+        targetSeekFraction = -1f
+        lastSeekFinishedTime = 0L
     }
 
-    // Clear optimistic position ONLY when the SMOOTH (visual) progress catches up
-    // using raw position causes a jump because smooth progress might lag behind raw.
-    LaunchedEffect(optimisticPosition) {
-        val target = optimisticPosition
-        if (target != null) {
-            val start = System.currentTimeMillis()
-            
-            while (optimisticPosition != null) {
-                // Check if the current VISUAL progress (smoothState) corresponds to the target
-                // We use the derived state value which falls back to smoothProgressState
-                val currentVisual = smoothProgressState.value
-                val currentVisualMs = (currentVisual * durationForCalc).toLong()
-                
-                // If visual is close enough (within 500ms visual distance)
-                if (kotlin.math.abs(currentVisualMs - target) < 500 || (System.currentTimeMillis() - start) > 2000) {
-                     optimisticPosition = null
-                }
-                kotlinx.coroutines.delay(50)
+    // Release the held target once smooth progress catches up (within 4%) or after a 5 s
+    // safety net — same thresholds as the LyricsSheet PlayerSeekBar. Re-keying on songId
+    // restarts the snapshotFlow so the new song's progress drives the catch-up cleanly.
+    LaunchedEffect(songId) {
+        snapshotFlow { smoothProgressState.value }.collect { progress ->
+            if (sliderDragValue != null) return@collect
+            val target = targetSeekFraction
+            if (target < 0f) return@collect
+            val timeSinceSeek = System.currentTimeMillis() - lastSeekFinishedTime
+            val diff = kotlin.math.abs(progress - target)
+            if (timeSinceSeek > 5000L || diff < 0.04f) {
+                targetSeekFraction = -1f
             }
         }
     }
@@ -1736,20 +1735,13 @@ private fun PlayerProgressBarSection(
     }
 
     // Always drive the thumb from smoothed progress to avoid visual jumps from 500ms raw ticks.
-    val animatedProgressState = remember(
-        sliderDragValue,
-        optimisticPosition,
-        smoothProgressState,
-        durationForCalc
-    ) {
+    val animatedProgressState = remember(smoothProgressState) {
         derivedStateOf {
-             if (sliderDragValue != null) {
-                 sliderDragValue!!
-             } else if (optimisticPosition != null) {
-                 (optimisticPosition!!.toFloat() / durationForCalc.toFloat()).coerceIn(0f, 1f)
-             } else {
-                 smoothProgressState.value
-             }
+            when {
+                sliderDragValue != null -> sliderDragValue!!
+                targetSeekFraction >= 0f -> targetSeekFraction
+                else -> smoothProgressState.value
+            }
         }
     }
 
@@ -1814,7 +1806,8 @@ private fun PlayerProgressBarSection(
                     onValueChange = { sliderDragValue = it },
                     onValueCommit = { finalValue ->
                         val targetMs = (finalValue * durationForCalc).roundToLong()
-                        optimisticPosition = targetMs
+                        targetSeekFraction = finalValue
+                        lastSeekFinishedTime = System.currentTimeMillis()
                         onSeek(targetMs)
                         sliderDragValue = null
                     },
