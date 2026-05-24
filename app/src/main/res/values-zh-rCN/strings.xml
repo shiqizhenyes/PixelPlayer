@@ -153,6 +153,7 @@
     <string name="cast_server_notification_title">正在投放到设备</string>
     <string name="cast_server_notification_text">正在向 Cast 设备提供媒体内容</string>
     <string name="cast_server_foreground_error">%1$s：%2$s</string>
+    <string name="cast_seek_unavailable_for_format">为避免投放进程崩溃，暂不支持调整此音频格式的播放进度。</string>
 
     <!-- Backup / data transfer (ViewModels) -->
     <string name="backup_invalid_format">无效备份：%1$s</string>

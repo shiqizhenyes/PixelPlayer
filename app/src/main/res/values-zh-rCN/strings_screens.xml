@@ -130,7 +130,10 @@
     <string name="dialog_delete_song_message">\"%1$s\" - %2$s\n\n这首歌曲将从你的设备中被永久删除，且无法恢复。</string>
 
     <!-- Home / detail shared -->
-    <string name="home_your_mix_title">你的\nMix</string>
+    <string name="home_your_mix_title">你的\n精选辑</string>
+    <string name="home_empty_placeholder_title">尚无可展示的数据</string>
+    <string name="home_empty_placeholder_subtitle">PixelPlayer 找到曲目或从某个来源同步后，此处就将生成你的精选辑。</string>
+    <string name="home_empty_placeholder_refresh">刷新</string>
     <string name="cd_shuffle_play">随机播放</string>
     <string name="cd_album_art_for_title">%1$s 的专辑封面</string>
     <string name="cd_options">选项</string>

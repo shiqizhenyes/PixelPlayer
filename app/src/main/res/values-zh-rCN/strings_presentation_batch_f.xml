@@ -52,8 +52,13 @@
     <string name="presentation_batch_f_auto_generated_collage">自动生成的拼贴</string>
     <string name="presentation_batch_f_cd_add_photo">添加图片</string>
     <string name="presentation_batch_f_pick_image">选择图片</string>
+    <string name="presentation_batch_f_change">更改</string>
+    <string name="presentation_batch_f_remove">移除</string>
     <string name="presentation_batch_f_playlist_name_label">播放列表名称</string>
-    <string name="presentation_batch_f_playlist_name_placeholder">我的超棒合辑</string>
+    <string name="presentation_batch_f_playlist_name_placeholder">我的超赞合辑</string>
+    <string name="presentation_batch_f_edit_cover_title">编辑封面</string>
+    <string name="presentation_batch_f_adjust_cover_title">调整你的封面图像</string>
+    <string name="presentation_batch_f_adjust_cover_hint">使用缩放和拖拽手势来寻找最佳构图效果</string>
     <string name="presentation_batch_f_creation_mode_manual">手动</string>
     <string name="presentation_batch_f_creation_mode_smart">智能</string>
     <string name="presentation_batch_f_generate_with_ai">用 AI 生成</string>
@@ -169,7 +174,7 @@
     <string name="presentation_batch_f_telegram_status_preparing">正在准备安全的 Telegram 会话……</string>
     <string name="presentation_batch_f_telegram_status_waiting">正在等待 Telegram 响应……</string>
     <string name="presentation_batch_f_connect_telegram">连接 Telegram</string>
-    <string name="presentation_batch_f_connect_telegram_subtitle">提供完善的错误处理、超时控制和可编辑步骤的登录流程。</string>
+    <string name="presentation_batch_f_connect_telegram_subtitle">连接到 Telegram，从你的频道和对话中串流播放歌曲。</string>
     <string name="presentation_batch_f_phone_number_title">手机号</string>
     <string name="presentation_batch_f_phone_number_subtitle">输入你的 Telegram 手机号。之后仍可返回修改。</string>
     <string name="presentation_batch_f_phone_number_hint">手机号</string>
@@ -204,6 +209,9 @@
     <string name="presentation_batch_f_fetch_latest_songs">获取此频道中的最新歌曲</string>
     <string name="presentation_batch_f_remove_channel">移除频道</string>
     <string name="presentation_batch_f_remove_channel_subtitle">停止同步并移除缓存歌曲</string>
+    <string name="presentation_batch_f_remove_channel_confirm_title">移除频道？</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s 将停止同步，所有从该频道缓存的曲目也将被移除。</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">移除</string>
     <string name="presentation_batch_f_no_channels_synced">尚未同步任何频道</string>
     <string name="presentation_batch_f_no_channels_body">添加公开的 Telegram 频道以同步\n你的音乐媒体库</string>
     <string name="presentation_batch_f_add_channel_button">添加频道</string>
