@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.R
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +60,7 @@ fun AppRebrandDialog(
                     onDismiss()
                 }
             ) {
-                Text(text = stringResource(id = R.string.dismiss))
+                Text(text = stringResource(id = R.string.dismiss), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     )

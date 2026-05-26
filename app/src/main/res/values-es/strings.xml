@@ -121,6 +121,7 @@
     <string name="widget_control_4x2_desc">Controles completos con aleatorio y repetición</string>
     <string name="widget_grid_2x2_desc">Reproductor cuadrado minimalista</string>
     <string name="service_processing_action">Procesando acción de reproducción…</string>
+    <string name="cast_seek_unavailable_for_format">Por ahora no se puede mover la barra de progreso con este formato en Cast porque puede cerrar la sesión.</string>
 
     <string name="sleep_timer_n_minutes_format">%1$d minutos</string>
     <string name="sleep_timer_display_eot">Fin de pista</string>

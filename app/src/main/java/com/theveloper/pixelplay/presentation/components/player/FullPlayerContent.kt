@@ -67,6 +67,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -580,7 +582,8 @@ fun FullPlayerContent(
             chipColor = playerOnAccentColor.copy(alpha = 0.8f),
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
-            onArtistClick = onSongMetadataArtistClick
+            onArtistClick = onSongMetadataArtistClick,
+            isPlayingProvider = isPlayingProvider
         )
     }
 
@@ -602,7 +605,8 @@ fun FullPlayerContent(
             chipColor = playerOnAccentColor.copy(alpha = 0.8f),
             chipContentColor = playerAccentColor,
             onQueueClick = onSongMetadataQueueClick,
-            onArtistClick = onSongMetadataArtistClick
+            onArtistClick = onSongMetadataArtistClick,
+            isPlayingProvider = isPlayingProvider
         )
     }
 
@@ -816,7 +820,7 @@ fun FullPlayerContent(
                                             AnimatedContent(
                                                 targetState = when {
                                                     isCastConnecting -> stringResource(R.string.presentation_batch_g_player_connecting)
-                                                    isRemotePlaybackActive && selectedRouteName != null -> selectedRouteName ?: ""
+                                                    isRemotePlaybackActive && selectedRouteName != null -> selectedRouteName
                                                     else -> ""
                                                 },
                                                 transitionSpec = {
@@ -1012,12 +1016,14 @@ private fun FullPlayerAlbumCoverSection(
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delayAlbumCarousel
     val shouldApplyPausedScale = !isPlayingProvider() && !playWhenReadyProvider()
+    // Use a short deterministic tween instead of spring(StiffnessLow). The original
+    // spring took ~1s to settle, producing ~60 frames of graphicsLayer invalidations
+    // that overlapped with any subsequent sheet-collapse gesture. A 260 ms tween
+    // finishes well before the user can start the next gesture, keeping the album
+    // art's "pause squish" visible but removing the long tail of frame work.
     val albumArtScale by animateFloatAsState(
         targetValue = if (shouldApplyPausedScale) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessLow
-        ),
+        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "AlbumArtScale"
     )
 
@@ -1308,7 +1314,8 @@ private fun FullPlayerSongMetadataSection(
     chipColor: Color,
     chipContentColor: Color,
     onQueueClick: () -> Unit,
-    onArtistClick: () -> Unit
+    onArtistClick: () -> Unit,
+    isPlayingProvider: () -> Boolean = { true }
 ) {
     val shouldDelay = loadingTweaks.delayAll || loadingTweaks.delaySongMetadata
 
@@ -1352,7 +1359,8 @@ private fun FullPlayerSongMetadataSection(
             chipContentColor = chipContentColor,
             showQueueButton = isLandscape,
             onClickQueue = onQueueClick,
-            onClickArtist = onArtistClick
+            onClickArtist = onArtistClick,
+            isPlayingProvider = isPlayingProvider
         )
     }
 }
@@ -1451,7 +1459,8 @@ private fun SongMetadataDisplaySection(
     showQueueButton: Boolean,
     onClickQueue: () -> Unit,
     onClickArtist: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPlayingProvider: () -> Boolean = { true }
 ) {
     Row(
         modifier
@@ -1474,7 +1483,8 @@ private fun SongMetadataDisplaySection(
                 onClickArtist = onClickArtist,
                 modifier = Modifier
                     .weight(1f)
-                    .align(Alignment.CenterVertically)
+                    .align(Alignment.CenterVertically),
+                isPlayingProvider = isPlayingProvider
             )
         }
         
@@ -1646,6 +1656,7 @@ private fun PlayerProgressBarSection(
         }
     }
     val shouldRunRealtimeUpdates = allowRealtimeUpdates && isVisible
+    val shouldSampleProgress = isVisible
 
     val reportedDuration = totalDurationValue.coerceAtLeast(0L)
     val hintDuration = songDurationHintMs.coerceAtLeast(0L)
@@ -1685,39 +1696,36 @@ private fun PlayerProgressBarSection(
         isPlayingProvider = isPlayingProvider,
         currentPositionProvider = currentPositionProvider,
         totalDuration = displayDurationValue,
-        sampleWhilePlayingMs = if (isExpanded) 180L else 320L,
+        sampleWhilePlayingMs = if (shouldRunRealtimeUpdates && isExpanded) 180L else 500L,
         sampleWhilePausedMs = 800L,
-        isVisible = shouldRunRealtimeUpdates
+        isVisible = shouldSampleProgress
     )
 
     var sliderDragValue by remember { mutableStateOf<Float?>(null) }
-    // Optimistic Seek: Holds the target position immediately after seek to prevent snap-back
-    var optimisticPosition by remember { mutableStateOf<Long?>(null) }
+    // Held seek target (fraction) — mirrors PlayerSeekBar so the slider stays where the user
+    // dropped it until real playback catches up. Fraction-based so it survives duration drift.
+    var targetSeekFraction by remember { mutableFloatStateOf(-1f) }
+    var lastSeekFinishedTime by remember { mutableLongStateOf(0L) }
 
-    // Reset seek state on song change to avoid stale position from previous song
+    // Reset seek state on song change to avoid stale position from previous song.
     LaunchedEffect(songId) {
         sliderDragValue = null
-        optimisticPosition = null
+        targetSeekFraction = -1f
+        lastSeekFinishedTime = 0L
     }
 
-    // Clear optimistic position ONLY when the SMOOTH (visual) progress catches up
-    // using raw position causes a jump because smooth progress might lag behind raw.
-    LaunchedEffect(optimisticPosition) {
-        val target = optimisticPosition
-        if (target != null) {
-            val start = System.currentTimeMillis()
-            
-            while (optimisticPosition != null) {
-                // Check if the current VISUAL progress (smoothState) corresponds to the target
-                // We use the derived state value which falls back to smoothProgressState
-                val currentVisual = smoothProgressState.value
-                val currentVisualMs = (currentVisual * durationForCalc).toLong()
-                
-                // If visual is close enough (within 500ms visual distance)
-                if (kotlin.math.abs(currentVisualMs - target) < 500 || (System.currentTimeMillis() - start) > 2000) {
-                     optimisticPosition = null
-                }
-                kotlinx.coroutines.delay(50)
+    // Release the held target once smooth progress catches up (within 4%) or after a 5 s
+    // safety net — same thresholds as the LyricsSheet PlayerSeekBar. Re-keying on songId
+    // restarts the snapshotFlow so the new song's progress drives the catch-up cleanly.
+    LaunchedEffect(songId) {
+        snapshotFlow { smoothProgressState.value }.collect { progress ->
+            if (sliderDragValue != null) return@collect
+            val target = targetSeekFraction
+            if (target < 0f) return@collect
+            val timeSinceSeek = System.currentTimeMillis() - lastSeekFinishedTime
+            val diff = kotlin.math.abs(progress - target)
+            if (timeSinceSeek > 5000L || diff < 0.04f) {
+                targetSeekFraction = -1f
             }
         }
     }
@@ -1728,20 +1736,13 @@ private fun PlayerProgressBarSection(
     }
 
     // Always drive the thumb from smoothed progress to avoid visual jumps from 500ms raw ticks.
-    val animatedProgressState = remember(
-        sliderDragValue,
-        optimisticPosition,
-        smoothProgressState,
-        durationForCalc
-    ) {
+    val animatedProgressState = remember(smoothProgressState) {
         derivedStateOf {
-             if (sliderDragValue != null) {
-                 sliderDragValue!!
-             } else if (optimisticPosition != null) {
-                 (optimisticPosition!!.toFloat() / durationForCalc.toFloat()).coerceIn(0f, 1f)
-             } else {
-                 smoothProgressState.value
-             }
+            when {
+                sliderDragValue != null -> sliderDragValue!!
+                targetSeekFraction >= 0f -> targetSeekFraction
+                else -> smoothProgressState.value
+            }
         }
     }
 
@@ -1804,12 +1805,11 @@ private fun PlayerProgressBarSection(
                 EfficientSlider(
                     valueState = animatedProgressState,
                     onValueChange = { sliderDragValue = it },
-                    onValueChangeFinished = {
-                        sliderDragValue?.let { finalValue ->
-                            val targetMs = (finalValue * durationForCalc).roundToLong()
-                            optimisticPosition = targetMs
-                            onSeek(targetMs)
-                        }
+                    onValueCommit = { finalValue ->
+                        val targetMs = (finalValue * durationForCalc).roundToLong()
+                        targetSeekFraction = finalValue
+                        lastSeekFinishedTime = System.currentTimeMillis()
+                        onSeek(targetMs)
                         sliderDragValue = null
                     },
                     thumbColor = thumbColor,
@@ -1838,7 +1838,7 @@ private fun PlayerProgressBarSection(
 private fun EfficientSlider(
     valueState: androidx.compose.runtime.State<Float>,
     onValueChange: (Float) -> Unit,
-    onValueChangeFinished: () -> Unit,
+    onValueCommit: (Float) -> Unit,
     thumbColor: Color,
     activeTrackColor: Color,
     inactiveTrackColor: Color,
@@ -1862,9 +1862,9 @@ private fun EfficientSlider(
     }
 
     WavySliderExpressive(
-        value = valueState.value,
+        value = { valueState.value },
         onValueChange = onValueChangeWithHaptics,
-        onValueChangeFinished = onValueChangeFinished,
+        onValueCommit = onValueCommit,
         interactionSource = interactionSource,
         activeTrackColor = activeTrackColor,
         inactiveTrackColor = inactiveTrackColor,
@@ -2124,7 +2124,8 @@ private fun PlayerSongInfo(
     gradientEdgeColor: Color,
     playerViewModel: PlayerViewModel,
     onClickArtist: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPlayingProvider: () -> Boolean = { true }
 ) {
     val coroutineScope = rememberCoroutineScope()
     var isNavigatingToArtist by remember { mutableStateOf(false) }
@@ -2160,11 +2161,12 @@ private fun PlayerSongInfo(
         // If we want to avoid recomposition, we might need to pass the provider or just 1f if scrolling logic handles itself.
         // For now, let's pass the current value from provider for logic correctness, but ideally this component should be optimized too.
         AutoScrollingTextOnDemand(
-            title,
-            titleStyle,
-            gradientEdgeColor,
-            expansionFractionProvider,
-            modifier = Modifier.fillMaxWidth()
+            text = title,
+            style = titleStyle,
+            gradientEdgeColor = gradientEdgeColor,
+            expansionFractionProvider = expansionFractionProvider,
+            modifier = Modifier.fillMaxWidth(),
+            canScroll = isPlayingProvider()
         )
         Spacer(modifier = Modifier.height(2.dp))
 
@@ -2203,7 +2205,8 @@ private fun PlayerSongInfo(
                         }
                     }
                 }
-            )
+            ),
+            canScroll = isPlayingProvider()
         )
     }
 }

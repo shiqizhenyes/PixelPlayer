@@ -8,6 +8,7 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -23,9 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.theveloper.pixelplay.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
@@ -35,6 +37,7 @@ import com.theveloper.pixelplay.presentation.viewmodel.PlaylistViewModel
 import com.theveloper.pixelplay.presentation.viewmodel.StablePlayerState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.coroutines.flow.map
+import kotlin.math.roundToInt
 
 internal data class SaveQueueOverlayData(
     val songs: List<Song>,
@@ -45,6 +48,7 @@ internal data class SaveQueueOverlayData(
 @Composable
 internal fun UnifiedPlayerQueueLayer(
     shouldRenderLayer: Boolean,
+    keepQueueSheetWarm: Boolean,
     albumColorScheme: ColorScheme,
     queueScrimAlpha: Float,
     showQueueSheet: Boolean,
@@ -97,8 +101,8 @@ internal fun UnifiedPlayerQueueLayer(
             )
         }
 
-        val shouldRenderQueueSheet = remember(showQueueSheet, queueSheetHeightPx) {
-            showQueueSheet || queueSheetHeightPx == 0f
+        val shouldRenderQueueSheet = remember(showQueueSheet, keepQueueSheetWarm, queueSheetHeightPx) {
+            showQueueSheet || keepQueueSheetWarm || queueSheetHeightPx == 0f
         }
 
         if (shouldRenderQueueSheet) {
@@ -110,8 +114,8 @@ internal fun UnifiedPlayerQueueLayer(
                 QueueBottomSheet(
                     modifier = Modifier
                         .fillMaxSize()
+                        .offset { IntOffset(0, queueSheetOffset.value.roundToInt()) }
                         .graphicsLayer {
-                            translationY = queueSheetOffset.value
                             alpha = if (showQueueSheet) 1f else 0f
                         }
                         .onGloballyPositioned { coordinates ->
@@ -124,6 +128,8 @@ internal fun UnifiedPlayerQueueLayer(
                     currentQueueSourceName = currentQueueSourceName,
                     currentSongId = infrequentPlayerState.currentSong?.id,
                     currentMediaItemIndex = currentMediaItemIndex,
+                    isVisible = showQueueSheet,
+                    isPlaying = infrequentPlayerState.isPlaying,
                     onDismiss = onDismissQueue,
                     onSongInfoClick = onSongInfoClick,
                     onPlaySong = onPlaySong,
@@ -219,12 +225,14 @@ internal fun UnifiedPlayerSongInfoLayer(
                 onNavigateToAlbum = { onNavigateToAlbum(liveSong) },
                 onNavigateToArtist = { onNavigateToArtist(liveSong) },
                 onNavigateToGenre = { onNavigateToGenre(liveSong) },
-                onEditSong = { title, artist, album, genre, lyrics, trackNumber, discNumber, replayGainTrackGainDb, replayGainAlbumGainDb, coverArtUpdate ->
+                onEditSong = { title, artist, album, albumArtist, composer, genre, lyrics, trackNumber, discNumber, replayGainTrackGainDb, replayGainAlbumGainDb, coverArtUpdate ->
                     playerViewModel.editSongMetadata(
                         liveSong,
                         title,
                         artist,
                         album,
+                        albumArtist,
+                        composer,
                         genre,
                         lyrics,
                         trackNumber,
@@ -261,6 +269,7 @@ internal fun UnifiedPlayerSongInfoLayer(
 @Composable
 internal fun UnifiedPlayerQueueAndSongInfoHost(
     shouldRenderHost: Boolean,
+    keepQueueSheetWarm: Boolean,
     isQueueTelemetryActive: Boolean,
     albumColorScheme: ColorScheme,
     queueScrimAlpha: Float,
@@ -377,6 +386,7 @@ internal fun UnifiedPlayerQueueAndSongInfoHost(
 
             UnifiedPlayerQueueLayer(
                 shouldRenderLayer = true,
+                keepQueueSheetWarm = keepQueueSheetWarm,
                 albumColorScheme = albumColorScheme,
                 queueScrimAlpha = queueScrimAlpha,
                 showQueueSheet = showQueueSheet,

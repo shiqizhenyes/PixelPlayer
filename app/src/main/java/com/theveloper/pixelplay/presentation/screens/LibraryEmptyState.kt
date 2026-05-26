@@ -95,17 +95,17 @@ private fun libraryEmptySpec(
 
         LibraryTabId.LIKED -> when (storageFilter) {
             StorageFilter.ALL -> LibraryEmptySpec(
-                iconRes = R.drawable.rounded_favorite_24,
+                iconRes = R.drawable.round_favorite_24,
                 titleRes = R.string.lib_empty_liked_all_title,
                 subtitleRes = R.string.lib_empty_liked_all_subtitle
             )
             StorageFilter.OFFLINE -> LibraryEmptySpec(
-                iconRes = R.drawable.rounded_favorite_24,
+                iconRes = R.drawable.round_favorite_24,
                 titleRes = R.string.lib_empty_liked_offline_title,
                 subtitleRes = R.string.lib_empty_liked_offline_subtitle
             )
             StorageFilter.ONLINE -> LibraryEmptySpec(
-                iconRes = R.drawable.rounded_favorite_24,
+                iconRes = R.drawable.round_favorite_24,
                 titleRes = R.string.lib_empty_liked_online_title,
                 subtitleRes = R.string.lib_empty_liked_online_subtitle
             )

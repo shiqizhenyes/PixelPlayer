@@ -67,7 +67,6 @@ class BarWidget4x1 : GlanceAppWidget() {
 
         Box(
             modifier = GlanceModifier
-                .fillMaxSize()
                 .background(colors.surface)
                 .cornerRadius(widgetCornerRadius)
                 .padding(16.dp)
@@ -87,7 +86,7 @@ class BarWidget4x1 : GlanceAppWidget() {
                     cornerRadius = albumArtCornerRadius
                 )
 
-                Spacer(GlanceModifier.width(12.dp))
+                Spacer(GlanceModifier.width(8.dp))
 
                 Column(
                     modifier = GlanceModifier
@@ -115,42 +114,36 @@ class BarWidget4x1 : GlanceAppWidget() {
                     )
                 }
 
+                Spacer(GlanceModifier.width(8.dp))
+
+                // Previous Button
+                PreviousButton(
+                    modifier = GlanceModifier.size(40.dp),
+                    backgroundColor = colors.prevNextBackground,
+                    iconColor = colors.prevNextIcon,
+                    cornerRadius = controlButtonCornerRadius
+                )
+
                 Spacer(GlanceModifier.width(6.dp))
 
-                // Control Buttons Row
-                Row(
-                    modifier = GlanceModifier,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Previous Button
-                    PreviousButton(
-                        modifier = GlanceModifier.size(40.dp),
-                        backgroundColor = colors.prevNextBackground,
-                        iconColor = colors.prevNextIcon,
-                        cornerRadius = controlButtonCornerRadius
-                    )
+                // Play/Pause Button
+                PlayPauseButton(
+                    modifier = GlanceModifier.size(40.dp),
+                    isPlaying = isPlaying,
+                    backgroundColor = colors.playPauseBackground,
+                    iconColor = colors.playPauseIcon,
+                    cornerRadius = playButtonCornerRadius
+                )
 
-                    Spacer(GlanceModifier.width(6.dp))
+                Spacer(GlanceModifier.width(6.dp))
 
-                    // Play/Pause Button
-                    PlayPauseButton(
-                        modifier = GlanceModifier.size(40.dp),
-                        isPlaying = isPlaying,
-                        backgroundColor = colors.playPauseBackground,
-                        iconColor = colors.playPauseIcon,
-                        cornerRadius = playButtonCornerRadius
-                    )
-
-                    Spacer(GlanceModifier.width(6.dp))
-
-                    // Next Button
-                    NextButton(
-                        modifier = GlanceModifier.size(40.dp),
-                        backgroundColor = colors.prevNextBackground,
-                        iconColor = colors.prevNextIcon,
-                        cornerRadius = controlButtonCornerRadius
-                    )
-                }
+                // Next Button
+                NextButton(
+                    modifier = GlanceModifier.size(40.dp),
+                    backgroundColor = colors.prevNextBackground,
+                    iconColor = colors.prevNextIcon,
+                    cornerRadius = controlButtonCornerRadius
+                )
             }
         }
     }

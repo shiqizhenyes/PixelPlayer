@@ -224,7 +224,7 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
                     transfer.error == WearTransferProgress.ERROR_ALREADY_ON_WATCH
             } == true
             if (duplicateRejected) {
-                runCatching { openedSongSource?.close() }
+                runCatching { openedSongSource.close() }
                 openedSongSource = null
                 return
             }
@@ -251,7 +251,7 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
                     totalBytes = fileSize,
                     status = WearTransferProgress.STATUS_CANCELLED,
                 )
-                runCatching { openedSongSource?.close() }
+                runCatching { openedSongSource.close() }
                 openedSongSource = null
                 return
             }

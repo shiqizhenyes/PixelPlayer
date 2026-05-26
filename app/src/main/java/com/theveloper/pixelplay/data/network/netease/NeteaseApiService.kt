@@ -182,7 +182,7 @@ class NeteaseApiService @Inject constructor() {
             okHttpClient.newCall(builder.build()).execute().use { resp ->
                 val code = resp.code
                 Timber.d("$TAG: <<< HTTP $code for $url")
-                val bytes = resp.body?.bytes() ?: throw IOException("Empty response body")
+                val bytes = resp.body.bytes()
                 val body = String(bytes, StandardCharsets.UTF_8)
                 Timber.d("$TAG: <<< body[${body.length}]: ${body.take(500)}")
                 return body

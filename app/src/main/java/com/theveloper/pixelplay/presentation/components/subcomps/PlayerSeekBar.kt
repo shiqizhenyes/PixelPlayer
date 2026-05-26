@@ -59,12 +59,20 @@ fun PlayerSeekBar(
     }
 
     var isUserSeeking by remember { mutableStateOf(false) }
+    var lastSeekFinishedTime by remember { mutableStateOf(0L) }
+    var targetSeekFraction by remember { mutableFloatStateOf(-1f) }
     var seekFraction by remember { mutableFloatStateOf(progressFraction) }
     val lastHapticStep = remember { intArrayOf(-1) }
 
-    LaunchedEffect(progressFraction) {
+    LaunchedEffect(progressFraction, isUserSeeking) {
         if (!isUserSeeking) {
-            seekFraction = progressFraction
+            val now = System.currentTimeMillis()
+            val timeSinceSeek = now - lastSeekFinishedTime
+            val diffFraction = kotlin.math.abs(progressFraction - targetSeekFraction)
+            if (targetSeekFraction < 0f || timeSinceSeek > 5000L || diffFraction < 0.04f) {
+                seekFraction = progressFraction
+                targetSeekFraction = -1f
+            }
         }
     }
 
@@ -95,7 +103,7 @@ fun PlayerSeekBar(
                 .fillMaxWidth()
                 .padding(horizontal = 0.dp),
                 //.weight(0.8f),
-            value = seekFraction,
+            value = { seekFraction },
             onValueChange = { newFraction ->
                 isUserSeeking = true
                 seekFraction = newFraction
@@ -106,9 +114,12 @@ fun PlayerSeekBar(
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 }
             },
-            onValueChangeFinished = {
-                onSeek((seekFraction * totalDuration).roundToLong())
+            onValueCommit = { finalFraction ->
+                seekFraction = finalFraction
+                onSeek((finalFraction * totalDuration).roundToLong())
                 onSeekPreview?.invoke(null)
+                targetSeekFraction = finalFraction
+                lastSeekFinishedTime = System.currentTimeMillis()
                 isUserSeeking = false
             },
             strokeWidth = 5.dp, // Was trackHeight

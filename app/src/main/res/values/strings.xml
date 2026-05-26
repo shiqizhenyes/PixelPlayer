@@ -153,6 +153,7 @@
     <string name="cast_server_notification_title">Casting to device</string>
     <string name="cast_server_notification_text">Serving media to Cast device</string>
     <string name="cast_server_foreground_error">%1$s: %2$s</string>
+    <string name="cast_seek_unavailable_for_format">Seeking is temporarily unavailable for this audio format on Cast because it can crash the Cast session.</string>
 
     <!-- Backup / data transfer (ViewModels) -->
     <string name="backup_invalid_format">Invalid backup: %1$s</string>

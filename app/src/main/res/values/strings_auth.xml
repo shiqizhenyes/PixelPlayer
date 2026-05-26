@@ -23,6 +23,7 @@
     <string name="auth_navidrome_server_url_hint">Use the full https:// base address of your server.</string>
     <string name="auth_navidrome_username_hint">This is your Subsonic or Navidrome account name.</string>
     <string name="auth_navidrome_password_hint">App password also works if your server supports it.</string>
+    <string name="auth_navidrome_пароль_hint">App password also works if your server supports it.</string>
     <string name="auth_prefill_https">Prefill https://</string>
     <string name="auth_navidrome_footer">Compatible with Navidrome, Gonic, Airsonic, and other Subsonic-compatible servers</string>
     <string name="cd_navidrome_logo">Navidrome</string>

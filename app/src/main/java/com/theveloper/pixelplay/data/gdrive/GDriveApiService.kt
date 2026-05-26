@@ -104,7 +104,7 @@ class GDriveApiService @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
+            val responseBody = response.body.string()
             Timber.d("GDriveApi createFolder: code=${response.code}, body=${responseBody.take(200)}")
 
             if (!response.isSuccessful) {
@@ -137,7 +137,7 @@ class GDriveApiService @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
+            val responseBody = response.body.string()
             Timber.d("GDriveApi exchangeAuthCode: code=${response.code}")
 
             if (!response.isSuccessful) {
@@ -169,7 +169,7 @@ class GDriveApiService @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
+            val responseBody = response.body.string()
             Timber.d("GDriveApi refreshToken: code=${response.code}")
 
             if (!response.isSuccessful) {
@@ -195,7 +195,7 @@ class GDriveApiService @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
-            val responseBody = response.body?.string() ?: ""
+            val responseBody = response.body.string()
             Timber.d("GDriveApi GET ${url.take(80)}: code=${response.code}")
 
             if (!response.isSuccessful) {

@@ -2,6 +2,8 @@ package com.theveloper.pixelplay.presentation.components.subcomps
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,9 @@ import androidx.compose.material.icons.rounded.Abc
 import androidx.compose.material.icons.rounded.FormatAlignCenter
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.BrightnessHigh
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -51,6 +56,7 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Lyrics
 import com.theveloper.pixelplay.presentation.components.ToggleSegmentButton
 import com.theveloper.pixelplay.presentation.components.player.BottomToggleRow
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -66,6 +72,8 @@ fun LyricsMoreBottomSheet(
     onToggleSyncControls: () -> Unit,
     isImmersiveTemporarilyDisabled: Boolean,
     onSetImmersiveTemporarilyDisabled: (Boolean) -> Unit,
+    keepScreenOn: Boolean,
+    onKeepScreenOnChange: (Boolean) -> Unit,
     lyricsAlignment: String,
     onLyricsAlignmentChange: (String) -> Unit,
     hasTranslatedLyrics: Boolean,
@@ -104,7 +112,8 @@ fun LyricsMoreBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .padding(bottom = navigationBarsPadding + 10.dp),
+                .padding(bottom = 24.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             // No Title - "Expressive" relies on visual grouping
@@ -218,14 +227,14 @@ fun LyricsMoreBottomSheet(
                                 onResetImportedLyrics()
                             }
                         ) {
-                            Text(stringResource(R.string.action_reset), color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.action_reset), color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     },
                     dismissButton = {
                         androidx.compose.material3.TextButton(
                             onClick = { showResetDialog = false }
                         ) {
-                            Text(stringResource(R.string.cancel))
+                            Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     },
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -318,15 +327,17 @@ fun LyricsMoreBottomSheet(
             val isRomanizationVisible = hasRomanizedLyrics
             val isTranslationVisible = hasTranslatedLyrics
             val isImmersiveVisible = showSyncedLyrics && immersiveLyricsEnabled
+            val isKeepScreenOnVisible = true
 
-            if (isSyncVisible || isRomanizationVisible || isTranslationVisible) {
+            if (isSyncVisible || isRomanizationVisible || isTranslationVisible || isKeepScreenOnVisible) {
                 // Determine first and last items for rounding
                 val isRomanizationFirst = isRomanizationVisible && !isSyncVisible
                 val isTranslationFirst = isTranslationVisible && !isSyncVisible && !isRomanizationVisible
 
-                val isSyncLast = isSyncVisible && !isRomanizationVisible && !isTranslationVisible && !isImmersiveVisible
-                val isRomanizationLast = isRomanizationVisible && !isTranslationVisible && !isImmersiveVisible
-                val isTranslationLast = isTranslationVisible && !isImmersiveVisible
+                val isSyncLast = isSyncVisible && !isRomanizationVisible && !isTranslationVisible && !isImmersiveVisible && !isKeepScreenOnVisible
+                val isRomanizationLast = isRomanizationVisible && !isTranslationVisible && !isImmersiveVisible && !isKeepScreenOnVisible
+                val isTranslationLast = isTranslationVisible && !isImmersiveVisible && !isKeepScreenOnVisible
+                val isImmersiveLast = isImmersiveVisible && !isKeepScreenOnVisible
 
                 Column(
                     verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -493,11 +504,53 @@ fun LyricsMoreBottomSheet(
                                     RoundedCornerShape(
                                         topStart = 8.dp,
                                         topEnd = 8.dp,
+                                        bottomStart = if (isImmersiveLast) 24.dp else 8.dp,
+                                        bottomEnd = if (isImmersiveLast) 24.dp else 8.dp
+                                    )
+                                )
+                                .background(itemBackgroundColor),
+                            colors = ListItemDefaults.colors(
+                                containerColor = Color.Transparent,
+                                headlineColor = contentColor,
+                                leadingIconColor = contentColor
+                            )
+                        )
+                    }
+
+                    // Keep Screen On Toggle
+                    if (isKeepScreenOnVisible) {
+                        ListItem(
+                            headlineContent = { Text(stringResource(R.string.lyrics_more_keep_screen_on)) },
+                            leadingContent = {
+                                Icon(
+                                    imageVector = Icons.Rounded.BrightnessHigh,
+                                    contentDescription = null
+                                )
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = keepScreenOn,
+                                    onCheckedChange = onKeepScreenOnChange,
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = onAccentColor,
+                                        checkedTrackColor = accentColor,
+                                        uncheckedThumbColor = contentColor,
+                                        uncheckedTrackColor = contentColor.copy(alpha = 0.3f)
+                                    )
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(
+                                    RoundedCornerShape(
+                                        topStart = 8.dp,
+                                        topEnd = 8.dp,
                                         bottomStart = 24.dp,
                                         bottomEnd = 24.dp
                                     )
                                 )
-                                .background(itemBackgroundColor),
+                                .background(itemBackgroundColor)
+                                .clickable { onKeepScreenOnChange(!keepScreenOn) },
                             colors = ListItemDefaults.colors(
                                 containerColor = Color.Transparent,
                                 headlineColor = contentColor,

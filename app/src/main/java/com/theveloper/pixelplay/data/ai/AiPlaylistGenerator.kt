@@ -29,7 +29,7 @@ class AiPlaylistGenerator @Inject constructor(
 
             // Get offline scored candidates to pass to LLM (much smaller context window than the whole library)
             val samplingPool = when {
-                candidateSongs.isNullOrEmpty().not() -> candidateSongs ?: allSongs
+                candidateSongs.isNullOrEmpty().not() -> candidateSongs
                 else -> {
                     val rankedForPrompt = dailyMixManager.getTopCandidatesForAi(
                         allSongs = allSongs,

@@ -90,7 +90,7 @@ class GenericOpenAiClient(
 
             try {
                 client.newCall(request).execute().use { response ->
-                    val responseBody = response.body?.string()
+                    val responseBody = response.body.string()
 
                     if (!response.isSuccessful) {
                         throw AiProviderSupport.createException(
@@ -102,22 +102,13 @@ class GenericOpenAiClient(
                         )
                     }
 
-                    val nonEmptyBody = responseBody
-                        ?: throw AiProviderSupport.createException(
-                            providerName = providerName,
-                            statusCode = response.code,
-                            transportMessage = "Empty response body",
-                            responseBody = null,
-                            requestedModel = resolvedModel
-                        )
-
-                    val chatResponse = json.decodeFromString<ChatResponse>(nonEmptyBody)
+                    val chatResponse = json.decodeFromString<ChatResponse>(responseBody)
                     chatResponse.choices.firstOrNull()?.message?.content
                         ?: throw AiProviderSupport.createException(
                             providerName = providerName,
                             statusCode = response.code,
                             transportMessage = "Response had no content",
-                            responseBody = nonEmptyBody,
+                            responseBody = responseBody,
                             requestedModel = resolvedModel
                         )
                 }
@@ -147,7 +138,7 @@ class GenericOpenAiClient(
                     return@withContext listOf(defaultModelId)
                 }
                 
-                val responseBody = response.body?.string() ?: return@withContext listOf(defaultModelId)
+                val responseBody = response.body.string()
                 val modelsResponse = json.decodeFromString<ModelsResponse>(responseBody)
                 modelsResponse.data.map { it.id }.filter { 
                     !it.contains("whisper") && !it.contains("embed") && !it.contains("tts")

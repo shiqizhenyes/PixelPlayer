@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.theveloper.pixelplay.data.jellyfin
 
 import android.content.Context
@@ -37,6 +38,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.absoluteValue
 
+@Suppress("DEPRECATION")
 @Singleton
 class JellyfinRepository @Inject constructor(
     private val api: JellyfinApiService,

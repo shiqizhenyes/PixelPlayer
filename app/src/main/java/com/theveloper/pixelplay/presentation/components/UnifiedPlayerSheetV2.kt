@@ -34,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -372,6 +373,7 @@ fun UnifiedPlayerSheetV2(
         swipeDismissProgress = swipeDismissProgress
     )
     val currentBottomPadding = sheetVisualState.currentBottomPadding
+    val baseBottomPadding = sheetVisualState.baseBottomPadding
     val playerContentAreaHeightPxProvider = sheetVisualState.playerContentAreaHeightPxProvider
     val visualSheetTranslationYProvider = sheetVisualState.visualSheetTranslationYProvider
     val overallSheetTopCornerRadiusProvider = sheetVisualState.overallSheetTopCornerRadiusProvider
@@ -517,10 +519,12 @@ fun UnifiedPlayerSheetV2(
     val playerAreaBackground = sheetThemeState.playerAreaBackground
     // Elevation is only visible in the mini/collapsed state (expansion < 0.18).
     // miniReadyAlpha fades the shadow in during the initial song-appear animation.
-    val visualCardShadowElevation by remember(showQueueSheet, miniReadyAlpha) {
+    val isDragging = sheetBackAndDragState.isDragging
+    val visualCardShadowElevation by remember(showQueueSheet, miniReadyAlpha, isDragging) {
         derivedStateOf {
             if (
                 showQueueSheet ||
+                isDragging ||
                 playerContentExpansionFraction.isRunning ||
                 playerContentExpansionFraction.value > 0.18f
             ) {
@@ -592,9 +596,17 @@ fun UnifiedPlayerSheetV2(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            // Modifier.layout reads from pixel lambdas during the layout phase —
-                            // this avoids recomposition per drag frame (unlike derivedStateOf).
-                            // Layout still runs per-frame, but composition is skipped entirely.
+                            .graphicsLayer {
+                                translationX = offsetAnimatable.value
+                                scaleX = miniAppearScale
+                                scaleY = visualOvershootScaleY.value * miniAppearScale
+                                alpha = miniReadyAlpha
+                                transformOrigin = TransformOrigin(0.5f, 1f)
+                            }
+                            // outerLayout:
+                            // Measures downstream chain with innerWidth and targetHeightPx.
+                            // Places child at startPaddingPx to center it horizontally.
+                            // Reports full screen width to parent to satisfy fillMaxWidth() constraints.
                             .layout { measurable, constraints ->
                                 val targetHeightPx = playerContentAreaHeightPxProvider()
                                     .toInt().coerceAtLeast(0)
@@ -604,6 +616,7 @@ fun UnifiedPlayerSheetV2(
                                     .toInt().coerceAtLeast(0)
                                 val innerWidth = (constraints.maxWidth - startPaddingPx - endPaddingPx)
                                     .coerceAtLeast(0)
+                                
                                 val placeable = measurable.measure(
                                     constraints.copy(
                                         minWidth = innerWidth,
@@ -616,36 +629,41 @@ fun UnifiedPlayerSheetV2(
                                     placeable.placeRelative(startPaddingPx, 0)
                                 }
                             }
-                            .miniPlayerDismissHorizontalGesture(
-                                enabled = currentSheetContentState == PlayerSheetState.COLLAPSED,
-                                handler = miniDismissGestureHandler
-                            )
-                            .graphicsLayer {
-                                translationX = offsetAnimatable.value
-                                scaleX = miniAppearScale
-                                scaleY = visualOvershootScaleY.value * miniAppearScale
-                                alpha = miniReadyAlpha
-                                transformOrigin = TransformOrigin(0.5f, 1f)
-                            }
-                            .then(
-                                if (visualCardShadowElevation > 0.dp) {
-                                    Modifier.shadow(
-                                        elevation = visualCardShadowElevation,
-                                        shape = sheetInteractionState.playerShadowShape,
-                                        clip = false
-                                    )
-                                } else {
-                                    Modifier
-                                }
+                            // Always apply Modifier.shadow with the dynamic elevation
+                            // (0.dp renders nothing). Keeping the modifier chain
+                            // structurally stable avoids the costly relayout/redraw
+                            // restructure when the elevation crosses 0.dp during
+                            // expand/collapse or right after play/pause.
+                            .shadow(
+                                elevation = visualCardShadowElevation,
+                                shape = sheetInteractionState.playerShadowShape,
+                                clip = false
                             )
                             .background(
                                 color = playerAreaBackground,
                                 shape = sheetInteractionState.playerShadowShape
                             )
-                            .clipToBounds()
-                            .semantics {
-                                contentDescription = playerSheetSemanticsDescription
+                            .clip(sheetInteractionState.playerShadowShape)
+                            // innerLayout:
+                            // Measures the actual player content with full screen height targetContentHeightPx
+                            // so that it can render correctly, while reporting targetHeightPx to the outer
+                            // clip/background/shadow so that they are perfectly constrained to the miniplayer card bounds.
+                            .layout { measurable, constraints ->
+                                val targetContentHeightPx = containerHeight.roundToPx()
+                                val placeable = measurable.measure(
+                                    constraints.copy(
+                                        minHeight = targetContentHeightPx,
+                                        maxHeight = targetContentHeightPx
+                                    )
+                                )
+                                layout(constraints.maxWidth, constraints.maxHeight) {
+                                    placeable.placeRelative(0, 0)
+                                }
                             }
+                            .miniPlayerDismissHorizontalGesture(
+                                enabled = currentSheetContentState == PlayerSheetState.COLLAPSED,
+                                handler = miniDismissGestureHandler
+                            )
                             .playerSheetVerticalDragGesture(
                                 enabled = sheetInteractionState.canDragSheet,
                                 handler = sheetInteractionState.sheetVerticalDragGestureHandler
@@ -656,6 +674,9 @@ fun UnifiedPlayerSheetV2(
                                 indication = null
                             ) {
                                 playerViewModel.togglePlayerSheetState()
+                            }
+                            .semantics {
+                                contentDescription = playerSheetSemanticsDescription
                             }
                     ) {
                         UnifiedPlayerMiniAndFullLayers(
@@ -714,6 +735,8 @@ fun UnifiedPlayerSheetV2(
 
             UnifiedPlayerQueueAndSongInfoHost(
                 shouldRenderHost = shouldRenderQueueHost,
+                keepQueueSheetWarm = currentSheetContentState == PlayerSheetState.EXPANDED &&
+                    !internalIsKeyboardVisible,
                 isQueueTelemetryActive = isQueueTelemetryActive,
                 albumColorScheme = albumColorScheme,
                 queueScrimAlpha = queueScrimAlpha,

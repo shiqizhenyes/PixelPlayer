@@ -30,6 +30,7 @@
     <string name="cd_confirm_add_songs">Tambah lagu terpilih</string>
     <string name="song_picker_action_add">Tambah</string>
     <string name="song_picker_search_label">Cari lagu…</string>
+    <string name="song_picker_filter_favorites">Disukai</string>
     <string name="song_picker_error_load_failed">Gagal memuat lagu</string>
     <string name="song_picker_load_more">Muat lebih banyak</string>
 

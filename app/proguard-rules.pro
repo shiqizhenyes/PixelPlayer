@@ -184,6 +184,9 @@
 -keepclassmembers class net.sourceforge.pinyin4j.** { *; }
 -dontwarn net.sourceforge.pinyin4j.**
 
+# Glance Widget
+-keep class * extends androidx.glance.appwidget.action.ActionCallback { <init>(); }
+
 # =============================================================================
 # TIMBER LOGGING OPTIMIZATION FOR RELEASE BUILDS
 # =============================================================================

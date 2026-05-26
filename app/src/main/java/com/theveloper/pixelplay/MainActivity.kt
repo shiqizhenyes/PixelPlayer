@@ -10,6 +10,9 @@ import android.content.Context
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
+import android.graphics.RenderEffect as AndroidRenderEffect
+import android.graphics.Shader as AndroidShader
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import android.os.Bundle
 import android.os.Trace
 import android.provider.Settings
@@ -79,6 +82,9 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import com.theveloper.pixelplay.presentation.viewmodel.PlayerSheetState
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -442,7 +448,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openExternalUrl(url: String) {
-        val intent = Intent(Intent.ACTION_VIEW, url.toUri())
+        // Defense in depth: the announcement URL is fetched from a remote
+        // properties file on GitHub. If that file is ever tampered with, we
+        // must not let it launch arbitrary intents (`intent://...`,
+        // `javascript:`, custom schemes, etc.). Allow only the Play Store host.
+        val parsed = runCatching { url.toUri() }.getOrNull()
+        val scheme = parsed?.scheme?.lowercase()
+        val host = parsed?.host?.lowercase()
+        val isPlayStore = scheme == "https" &&
+            (host == "play.google.com" || host == "market.android.com")
+        if (!isPlayStore) {
+            LogUtils.w(this, "Refusing to open non-Play-Store announcement URL: $url")
+            return
+        }
+        val intent = Intent(Intent.ACTION_VIEW, parsed)
         try {
             startActivity(intent)
         } catch (_: ActivityNotFoundException) {
@@ -758,7 +777,6 @@ class MainActivity : ComponentActivity() {
                             val intent = Intent(this@MainActivity, com.theveloper.pixelplay.presentation.telegram.auth.TelegramLoginActivity::class.java)
                             startActivity(intent)
                         }
-                        else -> {}
                     }
                 }
         ) {
@@ -767,7 +785,6 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxSize(),
                 bottomBar = {
                     if (shouldRenderNavigationBar) {
-                        val playerContentExpansionFraction = playerViewModel.playerContentExpansionFraction.value
                         val currentSongId by remember {
                             playerViewModel.stablePlayerState
                                 .map { it.currentSong?.id }
@@ -776,57 +793,39 @@ class MainActivity : ComponentActivity() {
                         val showPlayerContentArea = currentSongId != null
                         val navBarElevation = 3.dp
 
-                        val playerContentActualBottomRadiusTargetValue by remember(
-                            navBarStyle,
-                            showPlayerContentArea,
-                            playerContentExpansionFraction,
-                        ) {
-                            derivedStateOf {
-                                if (navBarStyle == NavBarStyle.FULL_WIDTH) {
-                                    return@derivedStateOf lerp(navBarCornerRadius.dp, 26.dp, playerContentExpansionFraction)
-                                }
-
-                                if (showPlayerContentArea) {
-                                    if (playerContentExpansionFraction < 0.2f) {
-                                        lerp(12.dp, 26.dp, (playerContentExpansionFraction / 0.2f).coerceIn(0f, 1f))
-                                    } else {
-                                        26.dp
-                                    }
-                                } else {
-                                    navBarCornerRadius.dp
-                                }
-                            }
-                        }
-
-                        val playerContentActualBottomRadius by animateDpAsState(
-                            targetValue = playerContentActualBottomRadiusTargetValue,
-                            animationSpec = androidx.compose.animation.core.spring(
-                                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioNoBouncy,
-                                stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
-                            ),
-                            label = "PlayerContentBottomRadius"
-                        )
-
-                        val navBarHideFraction = if (showPlayerContentArea) playerContentExpansionFraction else 0f
-                        val navBarHideFractionClamped = navBarHideFraction.coerceIn(0f, 1f)
-
                         val animatedNavBarCornerRadius by animateDpAsState(
                             targetValue = navBarCornerRadius.dp,
                             animationSpec = tween(400),
                             label = "NavBarCornerRadius"
                         )
 
-                        val actualShape = remember(playerContentActualBottomRadius, showPlayerContentArea, navBarStyle, animatedNavBarCornerRadius) {
-                            val bottomRadius = if (navBarStyle == NavBarStyle.FULL_WIDTH) 0.dp else animatedNavBarCornerRadius
-                            AbsoluteSmoothCornerShape(
-                                cornerRadiusTL = playerContentActualBottomRadius,
-                                smoothnessAsPercentBR = 60,
-                                cornerRadiusTR = playerContentActualBottomRadius,
-                                smoothnessAsPercentTL = 60,
-                                cornerRadiusBL = bottomRadius,
-                                smoothnessAsPercentTR = 60,
-                                cornerRadiusBR = bottomRadius,
-                                smoothnessAsPercentBL = 60
+                        val actualShape = remember(navBarStyle, showPlayerContentArea, navBarCornerRadius, animatedNavBarCornerRadius) {
+                            DynamicSmoothCornerShape(
+                                topRadiusProvider = {
+                                    val fraction = playerViewModel.playerContentExpansionFraction.value
+                                    if (navBarStyle == NavBarStyle.DEFAULT) {
+                                        10.dp
+                                    } else if (navBarStyle == NavBarStyle.FULL_WIDTH) {
+                                        lerp(navBarCornerRadius.dp, 26.dp, fraction)
+                                    } else if (showPlayerContentArea) {
+                                        if (fraction < 0.2f) {
+                                            lerp(navBarCornerRadius.dp, 26.dp, (fraction / 0.2f).coerceIn(0f, 1f))
+                                        } else {
+                                            26.dp
+                                        }
+                                    } else {
+                                        navBarCornerRadius.dp
+                                    }
+                                },
+                                bottomRadiusProvider = {
+                                    if (navBarStyle == NavBarStyle.DEFAULT) {
+                                        animatedNavBarCornerRadius
+                                    } else if (navBarStyle == NavBarStyle.FULL_WIDTH) {
+                                        0.dp
+                                    } else {
+                                        animatedNavBarCornerRadius
+                                    }
+                                }
                             )
                         }
 
@@ -837,16 +836,6 @@ class MainActivity : ComponentActivity() {
                         }
                         val bottomBarPaddingPx = remember(bottomBarPadding, density) {
                             with(density) { bottomBarPadding.toPx() }
-                        }
-                        val animatedTranslationY by remember(
-                            navBarHideFractionClamped,
-                            componentHeightPx,
-                            shadowOverflowPx,
-                            bottomBarPaddingPx,
-                        ) {
-                            derivedStateOf {
-                                (componentHeightPx + shadowOverflowPx + bottomBarPaddingPx) * navBarHideFractionClamped
-                            }
                         }
 
                         Box(
@@ -866,7 +855,12 @@ class MainActivity : ComponentActivity() {
                                     .padding(bottom = bottomBarPadding)
                                     .onSizeChanged { componentHeightPx = it.height }
                                     .graphicsLayer {
-                                        translationY = animatedTranslationY
+                                        val hideFraction = if (showPlayerContentArea) {
+                                            playerViewModel.playerContentExpansionFraction.value.coerceIn(0f, 1f)
+                                        } else {
+                                            0f
+                                        }
+                                        translationY = (componentHeightPx + shadowOverflowPx + bottomBarPaddingPx) * hideFraction
                                         alpha = 1f
                                     }
                                     .height(navBarHeight)
@@ -921,14 +915,65 @@ class MainActivity : ComponentActivity() {
                             bottomSpacerPx = spacerPx
                         )
 
-                        AppNavigation(
-                            playerViewModel = playerViewModel,
-                            navController = navController,
-                            paddingValues = innerPadding,
-                            userPreferencesRepository = userPreferencesRepository,
-                            onSearchBarActiveChange = { isSearchBarActive = it },
-                            onOpenSidebar = { scope.launch { drawerState.open() } }
-                        )
+                        val expansionFractionProvider = remember(playerViewModel.playerContentExpansionFraction) {
+                            { playerViewModel.playerContentExpansionFraction.value }
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    val fraction = expansionFractionProvider()
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                        val blurPx = fraction * 100f // 40px target blur at 100% expanded
+                                        if (blurPx > 0f) {
+                                            renderEffect = AndroidRenderEffect.createBlurEffect(
+                                                blurPx,
+                                                blurPx,
+                                                AndroidShader.TileMode.CLAMP
+                                            ).asComposeRenderEffect()
+                                        } else {
+                                            renderEffect = null
+                                        }
+                                    }
+                                }
+                        ) {
+                            AppNavigation(
+                                playerViewModel = playerViewModel,
+                                navController = navController,
+                                paddingValues = innerPadding,
+                                userPreferencesRepository = userPreferencesRepository,
+                                onSearchBarActiveChange = { isSearchBarActive = it },
+                                onOpenSidebar = { scope.launch { drawerState.open() } }
+                            )
+                        }
+
+                        val isExpandedOrExpanding by remember {
+                            derivedStateOf {
+                                playerViewModel.playerContentExpansionFraction.value > 0.01f
+                            }
+                        }
+                        AnimatedVisibility(
+                            visible = isExpandedOrExpanding,
+                            enter = fadeIn(animationSpec = tween(durationMillis = 350)),
+                            exit = fadeOut(animationSpec = tween(durationMillis = 350)),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.surfaceContainerLowest.copy(
+                                            alpha = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 0.35f else 0.6f
+                                        )
+                                    )
+                                    .pointerInput(Unit) {
+                                        detectTapGestures {
+                                            playerViewModel.collapsePlayerSheet()
+                                        }
+                                    }
+                            )
+                        }
 
                         UnifiedPlayerSheetV2(
                             playerViewModel = playerViewModel,
@@ -1074,4 +1119,29 @@ class MainActivity : ComponentActivity() {
     }
 
 
+}
+
+private class DynamicSmoothCornerShape(
+    private val topRadiusProvider: () -> androidx.compose.ui.unit.Dp,
+    private val bottomRadiusProvider: () -> androidx.compose.ui.unit.Dp
+) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density
+    ): androidx.compose.ui.graphics.Outline {
+        val topRadius = topRadiusProvider()
+        val bottomRadius = bottomRadiusProvider()
+        val delegate = AbsoluteSmoothCornerShape(
+            cornerRadiusTL = topRadius,
+            smoothnessAsPercentTL = 60,
+            cornerRadiusTR = topRadius,
+            smoothnessAsPercentTR = 60,
+            cornerRadiusBL = bottomRadius,
+            smoothnessAsPercentBL = 60,
+            cornerRadiusBR = bottomRadius,
+            smoothnessAsPercentBR = 60
+        )
+        return delegate.createOutline(size, layoutDirection, density)
+    }
 }

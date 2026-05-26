@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.theveloper.pixelplay.data.service
 
 import android.content.Context
@@ -7,6 +8,7 @@ import androidx.media.session.MediaButtonReceiver
 import androidx.media3.common.util.UnstableApi
 import timber.log.Timber
 
+@Suppress("DEPRECATION")
 class PixelPlayMediaButtonReceiver : MediaButtonReceiver() {
 
     @OptIn(UnstableApi::class)

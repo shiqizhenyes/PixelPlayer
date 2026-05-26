@@ -80,7 +80,7 @@ class TelegramStreamProxy @Inject constructor(
                         return@get
                     }
                     
-                    val path = fileInfo!!.local.path
+                    val path = fileInfo.local.path
                     var expectedSize = fileInfo.expectedSize
 
                     // Optional hint from caller; only trusted within sane limits.
@@ -199,7 +199,7 @@ class TelegramStreamProxy @Inject constructor(
 
                             raf.seek(currentPos)
 
-                            var cachedDownloadedPrefixSize = fileInfo?.local?.downloadedPrefixSize?.toLong() ?: 0L
+                            var cachedDownloadedPrefixSize = fileInfo.local.downloadedPrefixSize
 
                             while (true) {
                                 // 1. Check if we've reached the end of the requested range
@@ -210,7 +210,7 @@ class TelegramStreamProxy @Inject constructor(
                                 if (currentPos >= cachedDownloadedPrefixSize) {
                                     // We reached the limit of what we know is downloaded. Refresh info.
                                     val updatedInfo = telegramRepository.getFile(fileId)
-                                    cachedDownloadedPrefixSize = updatedInfo?.local?.downloadedPrefixSize?.toLong() ?: 0L
+                                    cachedDownloadedPrefixSize = updatedInfo?.local?.downloadedPrefixSize ?: 0L
 
                                     // If still no new data, wait or check completion
                                     if (currentPos >= cachedDownloadedPrefixSize) {

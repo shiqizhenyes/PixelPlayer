@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -47,8 +48,21 @@ interface TelegramDao {
     @Query("DELETE FROM telegram_songs WHERE chat_id = :chatId AND thread_id = :threadId")
     suspend fun deleteSongsByTopicId(chatId: Long, threadId: Long)
 
+    @Transaction
+    suspend fun clearAll() {
+        clearAllSongs()
+        clearAllChannels()
+        clearAllTopics()
+    }
+
     @Query("DELETE FROM telegram_songs")
-    suspend fun clearAll()
+    suspend fun clearAllSongs()
+
+    @Query("DELETE FROM telegram_channels")
+    suspend fun clearAllChannels()
+
+    @Query("DELETE FROM telegram_topics")
+    suspend fun clearAllTopics()
 
     // ─── Topic methods ────────────────────────────────────────────────────────
 

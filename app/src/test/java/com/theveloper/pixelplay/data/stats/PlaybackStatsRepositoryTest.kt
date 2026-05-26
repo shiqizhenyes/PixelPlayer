@@ -1,6 +1,7 @@
 package com.theveloper.pixelplay.data.stats
 
 import com.google.common.truth.Truth.assertThat
+import com.theveloper.pixelplay.data.model.ArtistRef
 import com.theveloper.pixelplay.data.model.Song
 import java.time.Instant
 import java.time.LocalDate
@@ -142,6 +143,86 @@ class PlaybackStatsRepositoryTest {
         assertThat(summary.uniqueSongs).isEqualTo(1)
     }
 
+    @Test
+    fun `loadSummary separates multi artist playback in top artists`() = runTest {
+        val repository = createRepository()
+        val zoneId = ZoneId.systemDefault()
+        val start = LocalDate.of(2026, 4, 10)
+            .atTime(14, 0)
+            .atZone(zoneId)
+            .toInstant()
+            .toEpochMilli()
+        val durationMs = 60_000L
+        val event = PlaybackStatsRepository.PlaybackEvent(
+            songId = "song-1",
+            timestamp = start + durationMs,
+            durationMs = durationMs,
+            startTimestamp = start,
+            endTimestamp = start + durationMs
+        )
+        val collaboration = song(
+            songId = "song-1",
+            artist = "Artist A",
+            artists = listOf(
+                ArtistRef(id = 1L, name = "Artist A", isPrimary = true),
+                ArtistRef(id = 2L, name = "Artist B", isPrimary = false)
+            )
+        )
+
+        val summary = repository.buildSummaryFromEvents(
+            range = StatsTimeRange.DAY,
+            songs = listOf(collaboration),
+            allEvents = listOf(event),
+            nowMillis = start + durationMs + 1_000L
+        )
+
+        assertThat(summary.topArtists.map { it.artist })
+            .containsExactly("Artist A", "Artist B")
+            .inOrder()
+        summary.topArtists.forEach { artist ->
+            assertThat(artist.totalDurationMs).isEqualTo(durationMs)
+            assertThat(artist.playCount).isEqualTo(1)
+            assertThat(artist.uniqueSongs).isEqualTo(1)
+        }
+    }
+
+    @Test
+    fun `loadSummary counts separated artists in genre uniqueness`() = runTest {
+        val repository = createRepository()
+        val zoneId = ZoneId.systemDefault()
+        val start = LocalDate.of(2026, 4, 10)
+            .atTime(15, 0)
+            .atZone(zoneId)
+            .toInstant()
+            .toEpochMilli()
+        val durationMs = 30_000L
+        val event = PlaybackStatsRepository.PlaybackEvent(
+            songId = "song-1",
+            timestamp = start + durationMs,
+            durationMs = durationMs,
+            startTimestamp = start,
+            endTimestamp = start + durationMs
+        )
+        val collaboration = song(
+            songId = "song-1",
+            artist = "Artist A",
+            artists = listOf(
+                ArtistRef(id = 1L, name = "Artist A", isPrimary = true),
+                ArtistRef(id = 2L, name = "Artist B", isPrimary = false)
+            ),
+            genre = "Pop"
+        )
+
+        val summary = repository.buildSummaryFromEvents(
+            range = StatsTimeRange.DAY,
+            songs = listOf(collaboration),
+            allEvents = listOf(event),
+            nowMillis = start + durationMs + 1_000L
+        )
+
+        assertThat(summary.topGenres.single().uniqueArtists).isEqualTo(2)
+    }
+
     private fun createRepository(): PlaybackStatsRepository {
         val uniqueDir = createTempDirectory(
             "playback-stats-test-${Instant.now().toEpochMilli()}-"
@@ -151,17 +232,25 @@ class PlaybackStatsRepositoryTest {
         return PlaybackStatsRepository(testContext)
     }
 
-    private fun song(songId: String, durationMs: Long = 5 * 60 * 1000L): Song = Song(
+    private fun song(
+        songId: String,
+        durationMs: Long = 5 * 60 * 1000L,
+        artist: String = "Artist",
+        artists: List<ArtistRef> = emptyList(),
+        genre: String? = null
+    ): Song = Song(
         id = songId,
         title = "Song $songId",
-        artist = "Artist",
+        artist = artist,
         artistId = 1L,
+        artists = artists,
         album = "Album",
         albumId = 1L,
         path = "/music/$songId.mp3",
         contentUriString = "content://media/external/audio/media/$songId",
         albumArtUriString = null,
         duration = durationMs,
+        genre = genre,
         mimeType = "audio/mpeg",
         bitrate = 320_000,
         sampleRate = 44_100

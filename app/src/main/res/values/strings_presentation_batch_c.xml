@@ -17,8 +17,8 @@
     <string name="cd_import_m3u_playlist">Import M3U playlist</string>
     <string name="cd_locate_current_song">Locate current song</string>
     <string name="library_storage_filter_all_songs">All songs</string>
-    <string name="library_storage_filter_online">Online</string>
-    <string name="library_storage_filter_offline">Offline</string>
+    <string name="library_storage_filter_online">CLOUD</string>
+    <string name="library_storage_filter_offline">LOCAL</string>
     <string name="cd_sort_options">Sort options</string>
 
     <!-- Fetch lyrics (manual search fields) -->
@@ -30,7 +30,7 @@
     <string name="cd_confirm_add_songs">Add selected songs</string>
     <string name="song_picker_action_add">Add</string>
     <string name="song_picker_search_label">Search or filter songs…</string>
-    <string name="song_picker_filter_favorites">Favorites only</string>
+    <string name="song_picker_filter_favorites">Liked</string>
     <string name="song_picker_error_load_failed">Failed to load songs</string>
     <string name="song_picker_load_more">Load more</string>
 

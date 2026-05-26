@@ -133,7 +133,7 @@ private class PlayerSheetDynamicShape(
     ): Outline {
         val topRadius = topRadiusProvider().nonNegative()
         val bottomRadius = bottomRadiusProvider().nonNegative()
-        if (!useSmoothShapeProvider()) {
+        if (topRadius <= 1.dp || bottomRadius <= 1.dp || !useSmoothShapeProvider()) {
             val topRadiusPx = with(density) { topRadius.toPx() }
             val bottomRadiusPx = with(density) { bottomRadius.toPx() }
             return Outline.Rounded(

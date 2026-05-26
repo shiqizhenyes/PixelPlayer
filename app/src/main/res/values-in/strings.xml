@@ -58,6 +58,7 @@
     <string name="sync_complete">Sinkronisasi selesai</string>
     <string name="sync_pending">Menunggu…</string>
     <string name="syncing_library">Menyinkronkan pustaka…</string>
+    <string name="library_background_sync_cloud">Menyinkronkan sumber cloud...</string>
     <string name="unknown_song_title">Lagu tidak dikenal</string>
     <string name="unknown_artist">Artis tidak dikenal</string>
     <string name="unknown_album">Album tidak dikenal</string>
@@ -78,6 +79,7 @@
     <string name="play_playback">Putar</string>
     <string name="playlist_not_found">Playlist tidak ditemukan.</string>
 
+    <string name="disc_number_header">Disc %d</string>
     <string name="ai_error_api_key">Silakan konfigurasi API key yang valid untuk penyedia AI yang dipilih di Pengaturan.</string>
     <string name="ai_error_generic">Kesalahan AI: %s</string>
     <string name="ai_error_quota">Penyedia AI yang dipilih menolak permintaan karena akun tidak memiliki kredit atau kuota yang tersedia.</string>
@@ -222,4 +224,7 @@
     <string name="ui_format_percent_d">%1$d%%</string>
     <string name="backup_manifest_schema_v">v%1$d</string>
     <string name="backup_manifest_device_line">%1$s %2$s</string>
+    <string name="library_background_sync">Menyelesaikan di latar belakang...</string>
+    <string name="library_background_sync_lyrics">Memindai lirik...</string>
+    <string name="library_background_sync_cache">Membersihkan cache sampul album...</string>
 </resources>

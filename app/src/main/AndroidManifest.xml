@@ -23,6 +23,9 @@
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission
+        android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <!-- MANAGE_EXTERNAL_STORAGE removed for Google Play compliance.
          Write access to individual files is obtained via MediaStore.createWriteRequest(). -->
     <!-- Required only on Android 11 and below for legacy Bluetooth discovery and Wi-Fi SSID access. -->
@@ -134,7 +137,6 @@
 
                 <data android:mimeType="audio/*" />
                 <data android:scheme="content" />
-                <data android:scheme="file" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -263,7 +265,8 @@
         <provider
             android:name=".data.provider.SharedArtworkContentProvider"
             android:authorities="${applicationId}.artwork"
-            android:exported="true" />
+            android:exported="true"
+            android:grantUriPermissions="true" />
 
         <!-- Wear OS Data Layer: receives playback/volume commands from the watch -->
         <service

@@ -5,6 +5,7 @@
     <string name="presentation_batch_e_cd_queue_actions">Tindakan antrean</string>
     <string name="presentation_batch_e_action_clear_queue">Bersihkan antrean</string>
     <string name="presentation_batch_e_action_save_as_playlist">Simpan sebagai playlist</string>
+    <string name="presentation_batch_e_action_locate_current_song">Temukan lagu saat ini</string>
     <string name="presentation_batch_e_queue_named_suffix">Antrean %1$s</string>
     <string name="presentation_batch_e_queue_current">Antrean saat ini</string>
     <string name="presentation_batch_e_removed">dihapus</string>

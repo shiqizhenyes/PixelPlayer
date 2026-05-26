@@ -8,8 +8,9 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -33,6 +34,11 @@ fun ImageCropView(
 ) {
     val density = LocalDensity.current
     
+    // Use updated state to avoid stale closure in pointerInput
+    val currentScaleState by rememberUpdatedState(scale)
+    val currentPanState by rememberUpdatedState(pan)
+    val currentOnCropState by rememberUpdatedState(onCrop)
+
     BoxWithConstraints(
         modifier = modifier
             .aspectRatio(1f) // Enforce square container
@@ -67,12 +73,6 @@ fun ImageCropView(
         val currentW = baseW * scale
         val currentH = baseH * scale
         
-        // Calculate Pan Limits (Center is 0,0 relative to Viewport center)
-        // If image is larger than viewport, we can pan.
-        // Limit is: (ContentSize - ViewportSize) / 2
-        val maxPanX = max(0f, (currentW - viewportWidth) / 2f)
-        val maxPanY = max(0f, (currentH - viewportHeight) / 2f)
-        
         // Current Pan in Pixels
         // pan input is normalized: panX * viewportWidth
         val currentPanX = pan.x * viewportWidth
@@ -85,8 +85,8 @@ fun ImageCropView(
                     if (enabled) {
                         Modifier.pointerInput(baseW, baseH, viewportWidth, viewportHeight) {
                             detectTransformGestures { _, panDelta, zoom, _ ->
-                                // 1. Update Scale
-                                val newScale = (scale * zoom).coerceAtLeast(1f).coerceAtMost(5f)
+                                // 1. Update Scale using non-stale value
+                                val newScale = (currentScaleState * zoom).coerceAtLeast(1f).coerceAtMost(5f)
                                 
                                 // 2. Update Pan
                                 // We need to re-calculate limits based on new scale
@@ -95,16 +95,18 @@ fun ImageCropView(
                                 val newMaxPanX = max(0f, (newW - viewportWidth) / 2f)
                                 val newMaxPanY = max(0f, (newH - viewportHeight) / 2f)
                                 
-                                // Apply delta to current pixels
-                                // Note: Pan delta implies translation.
-                                val newPanPxX = (currentPanX + panDelta.x).coerceIn(-newMaxPanX, newMaxPanX)
-                                val newPanPxY = (currentPanY + panDelta.y).coerceIn(-newMaxPanY, newMaxPanY)
+                                // Apply delta to current pixels (non-stale)
+                                val panPxX = currentPanState.x * viewportWidth
+                                val panPxY = currentPanState.y * viewportHeight
+
+                                val newPanPxX = (panPxX + panDelta.x).coerceIn(-newMaxPanX, newMaxPanX)
+                                val newPanPxY = (panPxY + panDelta.y).coerceIn(-newMaxPanY, newMaxPanY)
                                 
                                 // Normalize
                                 val normX = if(viewportWidth > 0) newPanPxX / viewportWidth else 0f
                                 val normY = if(viewportHeight > 0) newPanPxY / viewportHeight else 0f
                                 
-                                onCrop(newScale, Offset(normX, normY))
+                                currentOnCropState(newScale, Offset(normX, normY))
                             }
                         }
                     } else Modifier

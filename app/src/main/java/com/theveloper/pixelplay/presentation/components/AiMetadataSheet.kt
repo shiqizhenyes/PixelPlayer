@@ -36,6 +36,7 @@ import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
+import androidx.compose.ui.text.style.TextOverflow
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -213,7 +214,7 @@ fun AiMetadataSheet(
                         shape = smoothCornerShape,
                         colors = ButtonDefaults.buttonColors(containerColor = colors.error)
                     ) {
-                        Text(stringResource(R.string.action_try_again))
+                        Text(stringResource(R.string.action_try_again), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -230,7 +231,7 @@ fun AiMetadataSheet(
                 ) {
                     Icon(Icons.Rounded.Close, null)
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.cancel))
+                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Button(
                     onClick = {

@@ -67,9 +67,9 @@ internal fun MiniPlayerContentInternal(
     isPreparingPlayback: Boolean,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
-    cornerRadiusAlb: Dp,
     onNext: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    canScroll: Boolean = true
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val controlsEnabled = !isCastConnecting && !isPreparingPlayback
@@ -136,12 +136,14 @@ internal fun MiniPlayerContentInternal(
                     else -> song.title
                 },
                 style = titleStyle,
-                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer
+                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
+                canScroll = canScroll
             )
             AutoScrollingText(
                 text = if (isPreparingPlayback) "Loading audio…" else song.displayArtist,
                 style = artistStyle,
-                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer
+                gradientEdgeColor = LocalMaterialTheme.current.primaryContainer,
+                canScroll = canScroll
             )
         }
         Spacer(modifier = Modifier.width(8.dp))

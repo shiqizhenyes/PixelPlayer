@@ -82,7 +82,7 @@ class MistralAiClient(private val apiKey: String) : AiClient {
 
             try {
                 client.newCall(request).execute().use { response ->
-                    val responseBody = response.body?.string()
+                    val responseBody = response.body.string()
 
                     if (!response.isSuccessful) {
                         throw AiProviderSupport.createException(
@@ -94,22 +94,13 @@ class MistralAiClient(private val apiKey: String) : AiClient {
                         )
                     }
 
-                    val nonEmptyBody = responseBody
-                        ?: throw AiProviderSupport.createException(
-                            providerName = "Mistral",
-                            statusCode = response.code,
-                            transportMessage = "Empty response body",
-                            responseBody = null,
-                            requestedModel = resolvedModel
-                        )
-
-                    val chatResponse = json.decodeFromString<ChatResponse>(nonEmptyBody)
+                    val chatResponse = json.decodeFromString<ChatResponse>(responseBody)
                     chatResponse.choices.firstOrNull()?.message?.content
                         ?: throw AiProviderSupport.createException(
                             providerName = "Mistral",
                             statusCode = response.code,
                             transportMessage = "Response had no content",
-                            responseBody = nonEmptyBody,
+                            responseBody = responseBody,
                             requestedModel = resolvedModel
                         )
                 }
@@ -139,7 +130,7 @@ class MistralAiClient(private val apiKey: String) : AiClient {
                     return@withContext getDefaultModels()
                 }
                 
-                val responseBody = response.body?.string() ?: return@withContext getDefaultModels()
+                val responseBody = response.body.string()
                 val modelsResponse = json.decodeFromString<ModelsResponse>(responseBody)
                 modelsResponse.data.map { it.id }
             } catch (e: Exception) {

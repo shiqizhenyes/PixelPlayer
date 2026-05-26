@@ -1,12 +1,15 @@
 package com.theveloper.pixelplay.utils
 
 import android.media.MediaMetadataRetriever
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Thread-safe pool of MediaMetadataRetriever instances to avoid costly creation/destruction
- * during mass scanning operations. Each retriever is reset between uses.
+ * Thread-safe helper for MediaMetadataRetriever usage.
+ *
+ * MediaMetadataRetriever does not expose a reliable reset/clear-data-source API. Reusing an
+ * instance across files can leave stale native extractor state on some Android builds, which
+ * makes embedded artwork/metadata reads intermittently return null for valid local files. Keep
+ * the wrapper API for callers, but use a fresh retriever per operation.
  * 
  * Usage:
  * ```kotlin
@@ -17,9 +20,6 @@ import java.util.concurrent.atomic.AtomicInteger
  * ```
  */
 object MediaMetadataRetrieverPool {
-    
-    private const val MAX_POOL_SIZE = 4
-    private val pool = ConcurrentLinkedQueue<MediaMetadataRetriever>()
     private val createdCount = AtomicInteger(0)
     
     /**
@@ -28,10 +28,8 @@ object MediaMetadataRetrieverPool {
      */
     @PublishedApi
     internal fun acquire(): MediaMetadataRetriever {
-        return pool.poll() ?: run {
-            createdCount.incrementAndGet()
-            MediaMetadataRetriever()
-        }
+        createdCount.incrementAndGet()
+        return MediaMetadataRetriever()
     }
     
     /**
@@ -40,16 +38,11 @@ object MediaMetadataRetrieverPool {
      */
     @PublishedApi
     internal fun release(retriever: MediaMetadataRetriever) {
-        if (pool.size < MAX_POOL_SIZE) {
-            // Reset the retriever for reuse (best effort - setDataSource with null is not supported)
-            // The next setDataSource call will override the previous state
-            pool.offer(retriever)
-        } else {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
-                // Ignore release errors
-            }
+        try {
+            retriever.release()
+        } catch (_: Exception) {
+            // Ignore release errors
+        } finally {
             createdCount.decrementAndGet()
         }
     }
@@ -76,22 +69,13 @@ object MediaMetadataRetrieverPool {
      * Clears all pooled retrievers. Call this when the app is low on memory.
      */
     fun clear() {
-        var retriever = pool.poll()
-        while (retriever != null) {
-            try {
-                retriever.release()
-            } catch (_: Exception) {
-                // Ignore release errors
-            }
-            createdCount.decrementAndGet()
-            retriever = pool.poll()
-        }
+        // No-op: retrievers are released immediately after each use.
     }
     
     /**
      * Returns the current number of retrievers held in the pool.
      */
-    fun poolSize(): Int = pool.size
+    fun poolSize(): Int = 0
     
     /**
      * Returns the total number of retrievers created (including those in use).

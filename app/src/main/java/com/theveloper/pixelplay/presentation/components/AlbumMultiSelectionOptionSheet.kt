@@ -76,8 +76,7 @@ fun AlbumMultiSelectionOptionSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 StackedAlbumCovers(
-                    albums = selectedAlbums.take(4),
-                    modifier = Modifier.width(150.dp)
+                    albums = selectedAlbums.take(4)
                 )
 
                 Spacer(modifier = Modifier.width(16.dp))
@@ -227,8 +226,11 @@ private fun StackedAlbumCovers(
     val borderWidth = 3.dp
     val borderColor = MaterialTheme.colorScheme.surfaceContainerLow
 
+    val numAlbums = albums.size
+    val totalWidth = if (numAlbums == 0) 0.dp else imageSize + (imageSize - overlap) * (numAlbums - 1)
+
     Box(
-        modifier = modifier,
+        modifier = modifier.width(totalWidth),
         contentAlignment = Alignment.CenterStart
     ) {
         albums.forEachIndexed { index, album ->
@@ -236,7 +238,7 @@ private fun StackedAlbumCovers(
             Box(
                 modifier = Modifier
                     .offset { IntOffset(offsetX.dp.roundToPx(), 0) }
-                    .zIndex((albums.size - index).toFloat())
+                    .zIndex((numAlbums - index).toFloat())
                     .size(imageSize)
                     .background(borderColor, CircleShape)
             ) {

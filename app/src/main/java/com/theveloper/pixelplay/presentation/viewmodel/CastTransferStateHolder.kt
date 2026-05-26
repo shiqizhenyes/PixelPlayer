@@ -18,6 +18,7 @@ import com.google.android.gms.cast.framework.SessionManager
 import com.google.android.gms.cast.framework.SessionManagerListener
 import com.google.android.gms.cast.framework.media.RemoteMediaClient
 import com.theveloper.pixelplay.data.model.Song
+import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.service.http.CastSessionSecurity
 import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
 import com.theveloper.pixelplay.data.service.player.CastPlayer
@@ -53,6 +54,11 @@ class CastTransferStateHolder @Inject constructor(
     private val dualPlayerEngine: DualPlayerEngine // For local player control during transfer
 ) {
     private val CAST_LOG_TAG = "PlayerCastTransfer"
+    private val remoteBufferingSoftRecoveryMs = 6_000L
+    private val remoteBufferingReloadMs = 14_000L
+    private val remoteBufferingTransferBackMs = 28_000L
+    private val remoteBufferingPositionToleranceMs = 750L
+    private val remoteBufferingLogIntervalMs = 5_000L
 
     private var scope: CoroutineScope? = null
     
@@ -96,6 +102,7 @@ class CastTransferStateHolder @Inject constructor(
     private var lastRemoteStreamPosition: Long = 0L
     private var lastRemoteRepeatMode: Int = MediaStatus.REPEAT_MODE_REPEAT_OFF
     private var lastKnownRemoteIsPlaying: Boolean = false
+    private var lastRemotePlaybackShouldResume: Boolean = false
     private var lastRemoteItemId: Int? = null
 
     private var pendingRemoteSongId: String? = null
@@ -109,6 +116,12 @@ class CastTransferStateHolder @Inject constructor(
     private var lastRemoteIdleLogKey: String? = null
     private var lastRemoteIdleLoggedAt: Long = 0L
     private var skipTransferBackOnNextSessionEnd: Boolean = false
+    private var remoteBufferingStartedAtMs: Long = 0L
+    private var remoteBufferingLastProgressAtMs: Long = 0L
+    private var remoteBufferingLastProgressPositionMs: Long = 0L
+    private var remoteBufferingRecoveryAttempts: Int = 0
+    private var remoteBufferingReloadAttempts: Int = 0
+    private var lastRemoteBufferingLogAtMs: Long = 0L
 
     // Listeners
     private var remoteMediaClientCallback: RemoteMediaClient.Callback? = null
@@ -118,6 +131,8 @@ class CastTransferStateHolder @Inject constructor(
     private var remoteStatusRefreshJob: Job? = null
     private var sessionSuspendedRecoveryJob: Job? = null
     private var alignToTargetJob: Job? = null
+    private var castErrorRecoveryJob: Job? = null
+    private var remoteBufferingRecoveryJob: Job? = null
     private val httpServerStartMutex = Mutex()
 
     fun initialize(
@@ -198,7 +213,6 @@ class CastTransferStateHolder @Inject constructor(
             }
             override fun onSessionSuspended(session: CastSession, reason: Int) {
                 Timber.tag(CAST_LOG_TAG).w("Cast session suspended (reason=%d). Waiting for recovery.", reason)
-                castStateHolder.setRemotePlaybackActive(false)
                 castStateHolder.setCastConnecting(true)
                 scheduleSessionSuspendedRecovery(session)
             }
@@ -231,8 +245,14 @@ class CastTransferStateHolder @Inject constructor(
         castStateHolder.setRemotePlaybackActive(currentSession != null)
         
         if (currentSession != null) {
-            currentSession.remoteMediaClient?.registerCallback(remoteMediaClientCallback!!)
-            currentSession.remoteMediaClient?.addProgressListener(remoteProgressListener!!, 1000)
+            val callback = remoteMediaClientCallback
+            val progressListener = remoteProgressListener
+            if (callback != null) {
+                currentSession.remoteMediaClient?.registerCallback(callback)
+            }
+            if (progressListener != null) {
+                currentSession.remoteMediaClient?.addProgressListener(progressListener, 1000)
+            }
             startRemoteProgressObserver()
             playbackStateHolder.startProgressUpdates()
             currentSession.remoteMediaClient?.requestStatus()
@@ -259,6 +279,11 @@ class CastTransferStateHolder @Inject constructor(
         val mediaStatus = remoteMediaClient.mediaStatus ?: return
 
         lastRemoteMediaStatus = mediaStatus
+        val remotePlayback = CastRemotePlaybackState.project(
+            mediaStatus = mediaStatus,
+            previousPlayIntent = lastRemotePlaybackShouldResume
+        )
+        lastRemotePlaybackShouldResume = remotePlayback.playWhenReady
         
         val songMap = getSongsByIdMap?.invoke() ?: emptyMap()
         
@@ -385,6 +410,9 @@ class CastTransferStateHolder @Inject constructor(
                     "media title=${currentRemoteItem?.media?.metadata?.getString(com.google.android.gms.cast.MediaMetadata.KEY_TITLE)} contentType=${currentRemoteItem?.media?.contentType} contentId=${currentRemoteItem?.media?.contentId}"
                 )
             }
+
+            scheduleCastErrorRecoveryIfNeeded(castSession, errorSongId)
+            return
         }
 
         val itemChanged = lastRemoteItemId != currentItemId
@@ -441,7 +469,7 @@ class CastTransferStateHolder @Inject constructor(
 
         val songChanged = currentSongFallback?.id != playbackStateHolder.stablePlayerState.value.currentSong?.id
 
-        val isPlaying = mediaStatus.playerState == MediaStatus.PLAYER_STATE_PLAYING
+        val isPlaying = remotePlayback.isPlaying
         lastKnownRemoteIsPlaying = isPlaying
         lastRemoteStreamPosition = streamPosition
         lastRemoteRepeatMode = mediaStatus.queueRepeatMode
@@ -450,6 +478,14 @@ class CastTransferStateHolder @Inject constructor(
             (currentSongFallback?.duration ?: 0L) > 0L -> currentSongFallback?.duration ?: 0L
             else -> playbackStateHolder.stablePlayerState.value.totalDuration.coerceAtLeast(0L)
         }
+        updateRemoteBufferingWatchdog(
+            session = castSession,
+            remoteMediaClient = remoteMediaClient,
+            mediaStatus = mediaStatus,
+            currentSong = currentSongFallback,
+            currentSongId = effectiveSongId,
+            streamPosition = streamPosition
+        )
 
         if (!castStateHolder.isRemotelySeeking.value) {
             castStateHolder.setRemotePosition(streamPosition)
@@ -461,6 +497,8 @@ class CastTransferStateHolder @Inject constructor(
                      lyrics = if (songChanged) null else it.lyrics,
                      isLoadingLyrics = if (songChanged && currentSongFallback != null) true else it.isLoadingLyrics,
                      isPlaying = isPlaying,
+                     playWhenReady = remotePlayback.playWhenReady,
+                     isBuffering = remotePlayback.isBuffering,
                      repeatMode = if (mediaStatus.queueRepeatMode == MediaStatus.REPEAT_MODE_REPEAT_SINGLE) Player.REPEAT_MODE_ONE
                                   else if (mediaStatus.queueRepeatMode == MediaStatus.REPEAT_MODE_REPEAT_ALL || mediaStatus.queueRepeatMode == MediaStatus.REPEAT_MODE_REPEAT_ALL_AND_SHUFFLE) Player.REPEAT_MODE_ALL
                                   else Player.REPEAT_MODE_OFF,
@@ -487,6 +525,8 @@ class CastTransferStateHolder @Inject constructor(
     
     private fun transferPlayback(session: CastSession) {
         scope?.launch {
+            resetRemoteBufferingWatchdog()
+            remoteBufferingRecoveryJob?.cancel()
             castStateHolder.setPendingCastRouteId(null)
             castStateHolder.setCastConnecting(true)
             castStateHolder.setRemotelySeeking(false)
@@ -512,7 +552,9 @@ class CastTransferStateHolder @Inject constructor(
                 return@launch
             }
 
-            val wasPlaying = localPlayer.isPlaying
+            val wasPlaying = localPlayer.isPlaying || localPlayer.playWhenReady
+            lastKnownRemoteIsPlaying = wasPlaying
+            lastRemotePlaybackShouldResume = wasPlaying
             val currentSongIndex = localPlayer.currentMediaItemIndex
             val safeStartIndex = currentSongIndex.takeIf { it in currentQueue.indices } ?: 0
             val currentPosition = localPlayer.currentPosition
@@ -613,6 +655,8 @@ class CastTransferStateHolder @Inject constructor(
                         lastRemoteSongId = currentQueue.getOrNull(safeStartIndex)?.id
                         lastRemoteStreamPosition = currentPosition
                         lastRemoteRepeatMode = castRepeatMode
+                        lastKnownRemoteIsPlaying = wasPlaying
+                        lastRemotePlaybackShouldResume = wasPlaying
                         playbackStateHolder.startProgressUpdates()
                         session.remoteMediaClient?.requestStatus()
                         currentQueue.getOrNull(safeStartIndex)?.id?.let(::launchAlignToTarget)
@@ -625,8 +669,14 @@ class CastTransferStateHolder @Inject constructor(
 
             loadInitialQueueAttempt()
 
-            session.remoteMediaClient?.registerCallback(remoteMediaClientCallback!!)
-            session.remoteMediaClient?.addProgressListener(remoteProgressListener!!, 1000)
+            val callback = remoteMediaClientCallback
+            val progressListener = remoteProgressListener
+            if (callback != null) {
+                session.remoteMediaClient?.registerCallback(callback)
+            }
+            if (progressListener != null) {
+                session.remoteMediaClient?.addProgressListener(progressListener, 1000)
+            }
             
             startRemoteProgressObserver()
         }
@@ -669,6 +719,226 @@ class CastTransferStateHolder @Inject constructor(
             .onFailure { throwable ->
                 Timber.tag(CAST_LOG_TAG).w(throwable, "Failed to emit cast error message")
             }
+    }
+
+    private fun scheduleCastErrorRecoveryIfNeeded(session: CastSession, errorSongId: String?) {
+        scheduleCastSessionTransferBack(
+            session = session,
+            songId = errorSongId,
+            reason = "item_error",
+            message = "Cast lost the stream. Resuming on this device."
+        )
+    }
+
+    private fun scheduleCastSessionTransferBack(
+        session: CastSession,
+        songId: String?,
+        reason: String,
+        message: String
+    ) {
+        if (!lastRemotePlaybackShouldResume || castErrorRecoveryJob?.isActive == true) return
+
+        castStateHolder.setCastConnecting(true)
+        castErrorRecoveryJob = scope?.launch {
+            Timber.tag(CAST_LOG_TAG).w(
+                "Recovering from Cast %s by ending remote session. songId=%s",
+                reason,
+                songId
+            )
+            Log.w("PX_CAST_RECOVERY", "ending_session reason=$reason songId=$songId")
+            emitCastError(message)
+            if (castStateHolder.castSession.value === session) {
+                sessionManager?.endCurrentSession(true)
+            }
+        }
+    }
+
+    private fun updateRemoteBufferingWatchdog(
+        session: CastSession,
+        remoteMediaClient: RemoteMediaClient,
+        mediaStatus: MediaStatus,
+        currentSong: Song?,
+        currentSongId: String?,
+        streamPosition: Long
+    ) {
+        val now = SystemClock.elapsedRealtime()
+        if (
+            mediaStatus.playerState != MediaStatus.PLAYER_STATE_BUFFERING ||
+            !lastRemotePlaybackShouldResume
+        ) {
+            resetRemoteBufferingWatchdog()
+            return
+        }
+
+        if (remoteBufferingStartedAtMs == 0L) {
+            remoteBufferingStartedAtMs = now
+            remoteBufferingLastProgressAtMs = now
+            remoteBufferingLastProgressPositionMs = streamPosition
+            remoteBufferingRecoveryAttempts = 0
+            lastRemoteBufferingLogAtMs = 0L
+        } else if (abs(streamPosition - remoteBufferingLastProgressPositionMs) >= remoteBufferingPositionToleranceMs) {
+            remoteBufferingLastProgressAtMs = now
+            remoteBufferingLastProgressPositionMs = streamPosition
+        }
+
+        val totalBufferingMs = now - remoteBufferingStartedAtMs
+        val stalledMs = now - remoteBufferingLastProgressAtMs
+        if (now - lastRemoteBufferingLogAtMs >= remoteBufferingLogIntervalMs) {
+            lastRemoteBufferingLogAtMs = now
+            Log.w(
+                "PX_CAST_BUFFERING",
+                "stalledMs=$stalledMs totalMs=$totalBufferingMs attempts=$remoteBufferingRecoveryAttempts songId=$currentSongId itemId=${mediaStatus.currentItemId} pos=$streamPosition duration=${remoteMediaClient.streamDuration}"
+            )
+        }
+
+        if (remoteBufferingRecoveryJob?.isActive == true) return
+
+        when {
+            remoteBufferingRecoveryAttempts == 0 && stalledMs >= remoteBufferingSoftRecoveryMs -> {
+                remoteBufferingRecoveryAttempts = 1
+                remoteBufferingRecoveryJob = scope?.launch {
+                    Log.w("PX_CAST_BUFFERING", "soft_recovery songId=$currentSongId pos=$streamPosition")
+                    remoteMediaClient.requestStatus()
+                    castStateHolder.castPlayer?.play()
+                    delay(750L)
+                    remoteMediaClient.requestStatus()
+                }
+            }
+            remoteBufferingRecoveryAttempts == 1 &&
+                remoteBufferingReloadAttempts < 1 &&
+                stalledMs >= remoteBufferingReloadMs -> {
+                remoteBufferingRecoveryAttempts = 2
+                remoteBufferingReloadAttempts += 1
+                remoteBufferingRecoveryJob = scope?.launch {
+                    reloadCurrentRemoteItemAfterBuffering(
+                        session = session,
+                        currentSong = currentSong,
+                        currentSongId = currentSongId,
+                        streamPosition = streamPosition
+                    )
+                }
+            }
+            stalledMs >= remoteBufferingTransferBackMs -> {
+                scheduleCastSessionTransferBack(
+                    session = session,
+                    songId = currentSongId,
+                    reason = "buffering_timeout",
+                    message = "Cast stayed stuck loading. Resuming on this device."
+                )
+            }
+        }
+    }
+
+    private suspend fun reloadCurrentRemoteItemAfterBuffering(
+        session: CastSession,
+        currentSong: Song?,
+        currentSongId: String?,
+        streamPosition: Long
+    ) {
+        val castPlayer = castStateHolder.castPlayer ?: run {
+            scheduleCastSessionTransferBack(
+                session = session,
+                songId = currentSongId,
+                reason = "buffering_no_cast_player",
+                message = "Cast stayed stuck loading. Resuming on this device."
+            )
+            return
+        }
+        val queue = (getCurrentQueue?.invoke().orEmpty().takeIf { it.isNotEmpty() } ?: lastRemoteQueue)
+        val startSong = currentSong
+            ?: currentSongId?.let { songId -> queue.firstOrNull { it.id == songId } }
+            ?: lastRemoteSongId?.let { songId -> queue.firstOrNull { it.id == songId } }
+
+        if (queue.isEmpty() || startSong == null) {
+            scheduleCastSessionTransferBack(
+                session = session,
+                songId = currentSongId,
+                reason = "buffering_missing_queue",
+                message = "Cast stayed stuck loading. Resuming on this device."
+            )
+            return
+        }
+
+        val castDeviceIpHint = resolveCastDeviceIp(session)
+        if (!ensureHttpServerRunning(castDeviceIpHint)) {
+            scheduleCastSessionTransferBack(
+                session = session,
+                songId = startSong.id,
+                reason = "buffering_server_unavailable",
+                message = "Cast stayed stuck loading. Resuming on this device."
+            )
+            return
+        }
+
+        val serverAddress = MediaFileHttpServerService.serverAddress
+        if (serverAddress == null) {
+            scheduleCastSessionTransferBack(
+                session = session,
+                songId = startSong.id,
+                reason = "buffering_missing_server_address",
+                message = "Cast stayed stuck loading. Resuming on this device."
+            )
+            return
+        }
+
+        val startIndex = queue.indexOfFirst { it.id == startSong.id }.coerceAtLeast(0)
+        val resumePosition = streamPosition
+            .takeIf { it > 0L }
+            ?: lastRemoteStreamPosition.takeIf { it > 0L }
+            ?: castStateHolder.remotePosition.value.coerceAtLeast(0L)
+        val accessPolicy = MediaFileHttpServerService.configureCastSessionAccess(
+            allowedSongIds = queue.map(Song::id),
+            castDeviceIpHint = castDeviceIpHint
+        )
+
+        Log.w(
+            "PX_CAST_BUFFERING",
+            "reload_current songId=${startSong.id} startIndex=$startIndex pos=$resumePosition queueSize=${queue.size}"
+        )
+        resetRemoteBufferingWatchdog(clearReloadAttempts = false)
+        castPlayer.loadQueue(
+            songs = queue,
+            startIndex = startIndex,
+            startPosition = resumePosition,
+            repeatMode = lastRemoteRepeatMode,
+            serverAddress = serverAddress,
+            authToken = accessPolicy.authToken,
+            autoPlay = true,
+            onComplete = { success, detail ->
+                if (success) {
+                    lastRemoteQueue = queue
+                    lastRemoteSongId = startSong.id
+                    lastRemoteStreamPosition = resumePosition
+                    lastRemotePlaybackShouldResume = true
+                    playbackStateHolder.startProgressUpdates()
+                    session.remoteMediaClient?.requestStatus()
+                    launchAlignToTarget(startSong.id)
+                } else {
+                    Timber.tag(CAST_LOG_TAG).w(
+                        "Failed to reload stuck Cast item. songId=%s detail=%s",
+                        startSong.id,
+                        detail
+                    )
+                    scheduleCastSessionTransferBack(
+                        session = session,
+                        songId = startSong.id,
+                        reason = "buffering_reload_failed",
+                        message = "Cast stayed stuck loading. Resuming on this device."
+                    )
+                }
+            }
+        )
+    }
+
+    private fun resetRemoteBufferingWatchdog(clearReloadAttempts: Boolean = true) {
+        remoteBufferingStartedAtMs = 0L
+        remoteBufferingLastProgressAtMs = 0L
+        remoteBufferingLastProgressPositionMs = 0L
+        remoteBufferingRecoveryAttempts = 0
+        if (clearReloadAttempts) {
+            remoteBufferingReloadAttempts = 0
+        }
+        lastRemoteBufferingLogAtMs = 0L
     }
 
     private fun resolveCastDeviceIp(session: CastSession?): String? {
@@ -791,6 +1061,9 @@ class CastTransferStateHolder @Inject constructor(
         alignToTargetJob?.cancel()
         remoteProgressObserverJob?.cancel()
         remoteStatusRefreshJob?.cancel()
+        remoteBufferingRecoveryJob?.cancel()
+        resetRemoteBufferingWatchdog()
+        castErrorRecoveryJob?.cancel()
         castStateHolder.setRemotelySeeking(false)
         val shouldSkipTransferBack = skipTransferBackOnNextSessionEnd
         skipTransferBackOnNextSessionEnd = false
@@ -921,6 +1194,8 @@ class CastTransferStateHolder @Inject constructor(
         lastRemoteQueue = emptyList()
         lastRemoteSongId = null
         lastRemoteStreamPosition = 0L
+        lastKnownRemoteIsPlaying = false
+        lastRemotePlaybackShouldResume = false
         
         onTransferBackComplete?.invoke()
     }
@@ -1124,6 +1399,8 @@ class CastTransferStateHolder @Inject constructor(
                         lastRemoteSongId = startSong.id
                         lastRemoteStreamPosition = 0L
                         lastRemoteRepeatMode = castRepeatMode
+                        lastKnownRemoteIsPlaying = true
+                        lastRemotePlaybackShouldResume = true
                         castStateHolder.setRemotePlaybackActive(true)
                         playbackStateHolder.startProgressUpdates()
                         castStateHolder.castSession.value?.remoteMediaClient?.requestStatus()
@@ -1146,6 +1423,7 @@ class CastTransferStateHolder @Inject constructor(
         lastPendingForceJumpAt = 0L
         lastRemoteSongId = song.id
         lastRemoteItemId = null
+        lastRemotePlaybackShouldResume = true
         Timber.tag(CAST_LOG_TAG).d("Marked pending remote song: %s", song.id)
 
         val songChanged = playbackStateHolder.stablePlayerState.value.currentSong?.id != song.id
@@ -1260,6 +1538,9 @@ class CastTransferStateHolder @Inject constructor(
         remoteStatusRefreshJob?.cancel()
         sessionSuspendedRecoveryJob?.cancel()
         alignToTargetJob?.cancel()
+        castErrorRecoveryJob?.cancel()
+        remoteBufferingRecoveryJob?.cancel()
+        resetRemoteBufferingWatchdog()
 
         // Unregister Cast session manager listener
         castSessionManagerListener?.let { listener ->

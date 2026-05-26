@@ -229,7 +229,7 @@ class QqMusicApiService @Inject constructor(
         buildPersistedCookieHeader()?.let { requestBuilder.header("Cookie", it) }
 
         return okHttpClient.newCall(requestBuilder.build()).execute().use { response ->
-            val bodyBytes = response.body?.bytes() ?: ByteArray(0)
+            val bodyBytes = response.body.bytes()
             if (!response.isSuccessful) {
                 Timber.w("QqMusicApiService GET request failed: HTTP ${response.code}")
             }
@@ -257,7 +257,7 @@ class QqMusicApiService @Inject constructor(
             .build()
 
         return okHttpClient.newCall(request).execute().use { response ->
-            val bodyBytes = response.body?.bytes() ?: ByteArray(0)
+            val bodyBytes = response.body.bytes()
             if (!response.isSuccessful) {
                 Timber.w("QqMusicApiService POST request failed: HTTP ${response.code}")
             }

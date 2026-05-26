@@ -56,6 +56,7 @@ import com.theveloper.pixelplay.data.preferences.EqualizerPreferencesRepository
 import com.theveloper.pixelplay.data.preferences.ThemePreferencesRepository
 import com.theveloper.pixelplay.data.preferences.UserPreferencesRepository
 import com.theveloper.pixelplay.data.repository.MusicRepository
+import com.theveloper.pixelplay.data.service.cast.CastRemotePlaybackState
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
 import com.theveloper.pixelplay.data.service.player.TransitionController
 import com.theveloper.pixelplay.ui.glancewidget.ControlWidget4x2
@@ -72,7 +73,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import com.theveloper.pixelplay.data.equalizer.EqualizerManager
@@ -183,7 +183,9 @@ class MusicService : MediaLibraryService() {
     private var castRemoteClientCallback: RemoteMediaClient.Callback? = null
     private var observedCastSession: CastSession? = null
     private var activeCastStatsOccurrenceId: String? = null
+    private var activeCastPlaybackIntent: Boolean = false
     private var playbackSnapshotPersistJob: Job? = null
+    private var playbackSnapshotUnloadWriteJob: Job? = null
     private var isRestoringPlaybackSnapshot = false
     private var isPlaybackUnloadInProgress = false
     private val audioManager by lazy {
@@ -207,6 +209,8 @@ class MusicService : MediaLibraryService() {
         private const val PLAYBACK_SNAPSHOT_DEBOUNCE_MS = 1500L
         private const val FORCED_WIDGET_STATE_DEBOUNCE_MS = 250L
         private const val MEDIA_SESSION_BUTTON_DEBOUNCE_MS = 250L
+        private const val DEFERRED_SERVICE_STARTUP_WORK_DELAY_MS = 1_000L
+        private const val PAUSED_RESTORE_PREPARE_QUEUE_LIMIT = 50
         private val pendingMediaButtonForegroundStarts = AtomicInteger(0)
 
         private const val APP_PACKAGE_PREFIX = "com.theveloper.pixelplay"
@@ -404,7 +408,12 @@ class MusicService : MediaLibraryService() {
         engine.addTransitionFinishedListener(transitionFinishedListener)
 
         controller.initialize()
-        initializeCastWearSync()
+        serviceScope.launch {
+            delay(DEFERRED_SERVICE_STARTUP_WORK_DELAY_MS)
+            if (!isPlaybackUnloadInProgress && mediaSession != null) {
+                initializeCastWearSync()
+            }
+        }
         registerHeadsetReconnectMonitor()
 
         serviceScope.launch {
@@ -999,17 +1008,40 @@ class MusicService : MediaLibraryService() {
             pendingMediaButtonForegroundStart ||
             (isMediaButtonIntent &&
                 !startedTemporaryForegroundInOnCreate &&
-                !isServiceAlreadyForeground())
+                !isServiceAlreadyForeground()) ||
+            when (intent?.action) {
+                PlayerActions.PLAY_PAUSE,
+                PlayerActions.NEXT,
+                PlayerActions.PREVIOUS,
+                PlayerActions.FAVORITE,
+                PlayerActions.PLAY_FROM_QUEUE,
+                PlayerActions.SHUFFLE,
+                PlayerActions.REPEAT -> true
+                else -> false
+            }
         if (needsTemporaryForeground && !startedTemporaryForegroundInOnCreate) {
             startTemporaryForegroundForCommand()
         }
 
         intent?.action?.let { action ->
-            val player = mediaSession?.player ?: return@let
+            Timber.tag(TAG).d("onStartCommand widget action: %s", action)
+            val player = mediaSession?.player ?: engine.masterPlayer
             when (action) {
-                PlayerActions.PLAY_PAUSE -> player.playWhenReady = !player.playWhenReady
-                PlayerActions.NEXT -> player.seekToNext()
-                PlayerActions.PREVIOUS -> player.seekToPrevious()
+                PlayerActions.PLAY_PAUSE -> {
+                    if (player.playbackState == Player.STATE_IDLE) {
+                        player.prepare()
+                    }
+                    player.playWhenReady = !player.playWhenReady
+                    requestWidgetFullUpdate(force = true)
+                }
+                PlayerActions.NEXT -> {
+                    player.seekToNext()
+                    requestWidgetFullUpdate(force = true)
+                }
+                PlayerActions.PREVIOUS -> {
+                    player.seekToPrevious()
+                    requestWidgetFullUpdate(force = true)
+                }
                 PlayerActions.FAVORITE -> {
                     val songId = player.currentMediaItem?.mediaId
                     if (!songId.isNullOrBlank()) {
@@ -1035,6 +1067,7 @@ class MusicService : MediaLibraryService() {
                                 timeline.getWindow(i, window)
                                 if (window.mediaItem.mediaId.toLongOrNull() == songId) {
                                     player.seekTo(i, C.TIME_UNSET)
+                                    player.prepare()
                                     player.play()
                                     break
                                 }
@@ -1046,6 +1079,10 @@ class MusicService : MediaLibraryService() {
                     val newState = !isManualShuffleEnabled
                     mediaSession?.let { session ->
                         updateManualShuffleState(session, enabled = newState, broadcast = true)
+                    } ?: run {
+                        // Fallback if session not ready
+                        isManualShuffleEnabled = newState
+                        requestWidgetFullUpdate(force = true)
                     }
                 }
                 PlayerActions.REPEAT -> {
@@ -1584,6 +1621,7 @@ class MusicService : MediaLibraryService() {
             syncCastListeningStatsFromRemote()
         } ?: run {
             activeCastStatsOccurrenceId = null
+            activeCastPlaybackIntent = false
             listeningStatsTracker.onPlaybackStopped()
         }
         requestWidgetFullUpdate(force = true)
@@ -1916,9 +1954,9 @@ class MusicService : MediaLibraryService() {
                     resolvedIndex,
                     snapshot.currentPositionMs.coerceAtLeast(0L)
                 )
-                // Even paused restores must prepare the timeline so duration/seek state is
-                // available immediately when the UI opens after a cold start.
-                player.prepare()
+                if (shouldRestorePlaying || preparedItems.size <= PAUSED_RESTORE_PREPARE_QUEUE_LIMIT) {
+                    player.prepare()
+                }
                 player.repeatMode = safeRepeatMode
                 player.shuffleModeEnabled = false
                 isManualShuffleEnabled = snapshot.shuffleEnabled
@@ -2033,6 +2071,7 @@ class MusicService : MediaLibraryService() {
         val artist: String,
         val artworkUri: Uri?,
         val isPlaying: Boolean,
+        val isActuallyPlaying: Boolean,
         val currentPositionMs: Long,
         val totalDurationMs: Long,
         val repeatMode: Int,
@@ -2054,7 +2093,7 @@ class MusicService : MediaLibraryService() {
                 songId = songId,
                 positionMs = snapshot.currentPositionMs,
                 durationMs = snapshot.totalDurationMs,
-                isPlaying = snapshot.isPlaying
+                isPlaying = snapshot.isActuallyPlaying
             )
             return
         }
@@ -2063,7 +2102,7 @@ class MusicService : MediaLibraryService() {
             songId = songId,
             positionMs = snapshot.currentPositionMs,
             durationMs = snapshot.totalDurationMs,
-            isPlaying = snapshot.isPlaying
+            isPlaying = snapshot.isActuallyPlaying
         )
     }
 
@@ -2116,6 +2155,11 @@ class MusicService : MediaLibraryService() {
             MediaStatus.REPEAT_MODE_REPEAT_ALL_AND_SHUFFLE -> Player.REPEAT_MODE_ALL
             else -> Player.REPEAT_MODE_OFF
         }
+        val remotePlayback = CastRemotePlaybackState.project(
+            mediaStatus = mediaStatus,
+            previousPlayIntent = activeCastPlaybackIntent
+        )
+        activeCastPlaybackIntent = remotePlayback.playWhenReady
 
         return RemotePlaybackSnapshot(
             occurrenceId = occurrenceId,
@@ -2123,7 +2167,8 @@ class MusicService : MediaLibraryService() {
             title = metadata?.getString(CastMediaMetadata.KEY_TITLE).orEmpty(),
             artist = metadata?.getString(CastMediaMetadata.KEY_ARTIST).orEmpty(),
             artworkUri = imageUri,
-            isPlaying = mediaStatus.playerState == MediaStatus.PLAYER_STATE_PLAYING,
+            isPlaying = remotePlayback.isPlaying,
+            isActuallyPlaying = mediaStatus.playerState == MediaStatus.PLAYER_STATE_PLAYING,
             currentPositionMs = remoteClient.approximateStreamPosition.coerceAtLeast(0L),
             totalDurationMs = effectiveDurationMs,
             repeatMode = mappedRepeatMode,
@@ -2890,9 +2935,9 @@ class MusicService : MediaLibraryService() {
         endOfTrackTimerSongId = null
 
         if (preservePlaybackSnapshot) {
-            persistPlaybackSnapshotBlocking()
+            persistPlaybackSnapshotOnUnload()
         } else {
-            clearPlaybackSnapshotBlocking()
+            clearPlaybackSnapshotOnUnload()
         }
 
         listeningStatsTracker.finalizeCurrentSession(forceSynchronousPersistence = true)
@@ -2907,22 +2952,23 @@ class MusicService : MediaLibraryService() {
         stopSelf()
     }
 
-    private fun persistPlaybackSnapshotBlocking() {
+    private fun persistPlaybackSnapshotOnUnload() {
         val snapshot = capturePlaybackSnapshotFromPlayer(playWhenReadyOverride = false)
-        writePlaybackSnapshotBlocking(snapshot)
+        writePlaybackSnapshotOnUnload(snapshot)
     }
 
-    private fun clearPlaybackSnapshotBlocking() {
-        writePlaybackSnapshotBlocking(null)
+    private fun clearPlaybackSnapshotOnUnload() {
+        writePlaybackSnapshotOnUnload(null)
     }
 
-    private fun writePlaybackSnapshotBlocking(snapshot: PlaybackQueueSnapshot?) {
-        runCatching {
-            runBlocking(Dispatchers.IO) {
+    private fun writePlaybackSnapshotOnUnload(snapshot: PlaybackQueueSnapshot?) {
+        playbackSnapshotUnloadWriteJob?.cancel()
+        playbackSnapshotUnloadWriteJob = appScope.launch {
+            runCatching {
                 userPreferencesRepository.setPlaybackQueueSnapshot(snapshot)
+            }.onFailure { e ->
+                Timber.tag(TAG).w(e, "Failed to persist playback snapshot during unload")
             }
-        }.onFailure { e ->
-            Timber.tag(TAG).w(e, "Failed to persist playback snapshot during unload")
         }
     }
 

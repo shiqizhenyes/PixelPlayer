@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import androidx.compose.ui.res.stringResource
 import com.theveloper.pixelplay.R
+import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun SavePresetDialog(
@@ -77,7 +78,7 @@ fun SavePresetDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+                Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     )
@@ -136,7 +137,7 @@ fun RenamePresetDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+                Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     )

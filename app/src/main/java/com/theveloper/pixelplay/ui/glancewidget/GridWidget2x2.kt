@@ -68,7 +68,6 @@ class GridWidget2x2 : GlanceAppWidget() {
 
         Box(
             modifier = GlanceModifier
-                .fillMaxSize()
                 .clickable(actionStartActivity<MainActivity>()),
             contentAlignment = Alignment.Center,
         ) {

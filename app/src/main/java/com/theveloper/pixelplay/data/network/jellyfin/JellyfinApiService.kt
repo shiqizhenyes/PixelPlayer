@@ -95,7 +95,7 @@ class JellyfinApiService @Inject constructor(
                         return@withContext Result.failure(Exception("HTTP ${response.code}: ${response.message}"))
                     }
 
-                    val responseBody = response.body?.string() ?: ""
+                    val responseBody = response.body.string()
                     val json = JSONObject(responseBody)
                     val accessToken = json.optString("AccessToken", "")
                     val userId = json.optJSONObject("User")?.optString("Id", "") ?: ""
@@ -138,7 +138,7 @@ class JellyfinApiService @Inject constructor(
 
                 okHttpClient.newCall(request).execute().use { response ->
                     val code = response.code
-                    val body = response.body?.string() ?: ""
+                    val body = response.body.string()
 
                     if (!response.isSuccessful) {
                         Timber.w("$TAG: <<< HTTP $code for $path")

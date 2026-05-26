@@ -81,6 +81,8 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(MiniPlayerHeight)
                         .graphicsLayer {
                             // Compute miniAlpha in the draw phase from the Animatable,
                             // avoiding per-frame recomposition during gestures.
@@ -89,20 +91,18 @@ internal fun BoxScope.UnifiedPlayerMiniAndFullLayers(
                         }
                         .zIndex(miniPlayerZIndex)
                 ) {
-                    val miniAlbumCornerRadius by remember(overallSheetTopCornerRadiusProvider) {
-                        derivedStateOf {
-                            (overallSheetTopCornerRadiusProvider().value * 0.5f).dp
-                        }
+                    val isMiniPlayerVisible by remember {
+                        derivedStateOf { playerContentExpansionFraction.value < 0.01f }
                     }
                     MiniPlayerContentInternal(
                         song = currentSongNonNull,
-                        cornerRadiusAlb = miniAlbumCornerRadius,
                         isPlaying = infrequentPlayerState.isPlaying,
                         isCastConnecting = isCastConnecting,
                         isPreparingPlayback = isPreparingPlayback,
                         onPlayPause = { playerViewModel.playPause() },
                         onPrevious = { playerViewModel.previousSong() },
                         onNext = { playerViewModel.nextSong() },
+                        canScroll = isMiniPlayerVisible && infrequentPlayerState.isPlaying,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

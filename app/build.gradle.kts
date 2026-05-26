@@ -18,6 +18,13 @@ val keystoreProperties = Properties().apply {
     }
 }
 
+val localProperties = Properties().apply {
+    val propFile = rootProject.file("local.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 val enableAbiSplits = providers.gradleProperty("pixelplay.enableAbiSplits")
     .getOrElse("true")
     .toBoolean()
@@ -66,6 +73,13 @@ android {
         versionName = (project.findProperty("APP_VERSION_NAME") as? String) ?: "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val telegramApiId = localProperties.getProperty("TELEGRAM_API_ID")?.ifEmpty { null }
+            ?: "2040"
+        val telegramApiHash = localProperties.getProperty("TELEGRAM_API_HASH")?.ifEmpty { null }
+            ?: "b18441a1ff607e10a989891a5462e627"
+        buildConfigField("int", "TELEGRAM_API_ID", telegramApiId)
+        buildConfigField("String", "TELEGRAM_API_HASH", "\"$telegramApiHash\"")
     }
 
     signingConfigs {
@@ -138,12 +152,7 @@ android {
 }
 
 composeCompiler {
-    // Applies Compose's strong skipping optimization (skip composables whose parameters
-    // haven't changed) in Debug builds as well, making dev-mode performance more
-    // representative of Release and reducing unnecessary recompositions during development.
-    featureFlags = setOf(
-        org.jetbrains.kotlin.compose.compiler.gradle.ComposeFeatureFlag.StrongSkipping
-    )
+    // StrongSkipping is now enabled by default.
 }
 
 baselineProfile {
@@ -163,6 +172,7 @@ ksp {
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        freeCompilerArgs.add("-Xannotation-default-target=param-property")
 
         if (enableComposeCompilerReports) {
             val buildDir = project.layout.buildDirectory.get().asFile.absolutePath
@@ -291,6 +301,9 @@ dependencies {
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)
     testRuntimeOnly(libs.junit.jupiter.engine)
+    // JUnit 4 (Vintage) — required for legacy JUnit 4 tests under useJUnitPlatform()
+    testImplementation(libs.junit)
+    testRuntimeOnly(libs.junit.vintage.engine)
     testRuntimeOnly(libs.junitplatformlauncher)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)

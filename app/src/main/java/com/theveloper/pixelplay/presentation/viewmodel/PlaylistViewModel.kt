@@ -430,18 +430,28 @@ class PlaylistViewModel @Inject constructor(
     ): String? {
         return withContext(Dispatchers.IO) {
             try {
-                // Load original bitmap
+                // Robust bitmap loading (Content URI or Local File)
                 val originalBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
-                        // Optimization: Mutable to support software rendering if needed
+                    val source = when {
+                        uri.scheme == "content" -> ImageDecoder.createSource(context.contentResolver, uri)
+                        uri.scheme == "file" || uri.path?.startsWith("/") == true -> {
+                            ImageDecoder.createSource(File(uri.path ?: ""))
+                        }
+                        else -> ImageDecoder.createSource(context.contentResolver, uri)
+                    }
+                    ImageDecoder.decodeBitmap(source) { decoder, _, _ ->
                         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                        // Use HARWARE if possible but need to copy for Canvas?
-                        // Software is safer for manual Canvas drawing.
                     }
                 } else {
                     @Suppress("DEPRECATION")
-                    MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                    if (uri.scheme == "content") {
+                        MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                    } else {
+                        android.graphics.BitmapFactory.decodeFile(uri.path)
+                    }
                 }
+
+                if (originalBitmap == null) return@withContext null
 
                 // Target dimensions (Square)
                 val targetSize = 1024
@@ -583,50 +593,36 @@ class PlaylistViewModel @Inject constructor(
         viewModelScope.launch {
             var savedCoverPath: String? = currentPlaylist.coverImageUri
 
-            // If a new URI is provided and it's different from the existing one (and not null)
-            // Or if we need to re-save because crop params changed?
-            // For simplicity, if coverImageUri is passed and it's a content URI, we save it.
-            // If it's the same string as savedCoverPath, we assume it's unchanged unless we want to force re-crop.
-            // The UI will pass the Uri string. If it's a local file path, it's likely already saved.
-            // But if the user selected a new image, it will be a content content:// uri.
+            val isNewImage = coverImageUri != null && coverImageUri != currentPlaylist.coverImageUri
+            val isAdjusted = cropScale != 1f || cropPanX != 0f || cropPanY != 0f
 
-            if (coverImageUri != null && coverImageUri != currentPlaylist.coverImageUri) {
-                // Check if it is a content URI or a file path that is NOT the existing saved path
-                if (coverImageUri.startsWith("content://") || (coverImageUri.startsWith("/") && coverImageUri != currentPlaylist.coverImageUri)) {
-                    val imageId = UUID.randomUUID().toString()
-                    val newPath = saveCoverImageToInternalStorage(
-                        Uri.parse(coverImageUri),
-                        imageId,
-                        cropScale,
-                        cropPanX,
-                        cropPanY
-                    )
-                    if (newPath != null) {
-                        savedCoverPath = newPath
+            if (coverImageUri != null && (isNewImage || isAdjusted)) {
+                // Save new image or re-crop existing one
+                val imageId = UUID.randomUUID().toString()
+                val newPath = saveCoverImageToInternalStorage(
+                    Uri.parse(coverImageUri),
+                    imageId,
+                    cropScale,
+                    cropPanX,
+                    cropPanY
+                )
+                if (newPath != null) {
+                    // Optional: Delete old file if it was a local file managed by us
+                    currentPlaylist.coverImageUri?.let { oldPath ->
+                        if (oldPath.contains("playlist_cover_")) {
+                            try { File(oldPath).delete() } catch (e: Exception) {}
+                        }
                     }
+                    savedCoverPath = newPath
                 }
             } else if (coverImageUri == null) {
-                // If passed null, it might mean remove cover? Or just no change?
-                // For this implementation let's assume if the user cleared it, the UI passes null.
-                // But we need to distinguish "no change" vs "remove".
-                // In CreatePlaylist we have "selectedImageUri".
-                // Let's assume the UI sends the desired final state.
-                // NOTE: If the user didn't change the image, the UI might send the existing coverImageUri (which is a file path).
-                // Or if they removed it, they send null.
-
-                // However, we also have crop parameters. If image is unchanged but crop changed, we should re-save (re-crop)
-                // if we have the original source. But we don't have the original source for the existing cover (we only have the cropped result).
-                // So, we can only re-crop if we have a source URI.
-                // This limitation implies: We can only update crop if we pick an image.
-                // So if coverImageUri is the existing path, we ignore crop params.
-                savedCoverPath = null // If explicit null passed, we remove it.
-            }
-            // Logic correction: 
-            // If the UI passes the EXISTING file path, implies NO CHANGE to image.
-            // If the UI passes a NEW content URI, implies NEW IMAGE (and we use crop params).
-            // If the UI passes NULL, implies REMOVE IMAGE.
-            if (coverImageUri == currentPlaylist.coverImageUri) {
-                savedCoverPath = currentPlaylist.coverImageUri
+                // Explicitly removed
+                currentPlaylist.coverImageUri?.let { oldPath ->
+                    if (oldPath.contains("playlist_cover_")) {
+                        try { File(oldPath).delete() } catch (e: Exception) {}
+                    }
+                }
+                savedCoverPath = null
             }
 
 

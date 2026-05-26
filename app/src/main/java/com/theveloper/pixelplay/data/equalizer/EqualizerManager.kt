@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.theveloper.pixelplay.data.equalizer
 
 import android.media.audiofx.Equalizer
@@ -17,6 +18,7 @@ import javax.inject.Singleton
  * Thread-safe: All effect operations run on the main thread.
  * Crossfade compatible: Effects are attached to the audio session, not the player instance.
  */
+@Suppress("DEPRECATION")
 @Singleton
 class EqualizerManager @Inject constructor() {
     

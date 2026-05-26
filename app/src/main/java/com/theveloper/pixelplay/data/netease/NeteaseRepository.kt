@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.theveloper.pixelplay.data.netease
 
 import android.content.Context
@@ -38,6 +39,7 @@ import kotlin.math.absoluteValue
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@Suppress("DEPRECATION")
 @Singleton
 class NeteaseRepository @Inject constructor(
     private val api: NeteaseApiService,

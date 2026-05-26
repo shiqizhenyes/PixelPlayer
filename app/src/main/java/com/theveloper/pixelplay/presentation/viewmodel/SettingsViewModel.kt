@@ -170,6 +170,7 @@ private sealed interface SettingsUiUpdate {
     ) : SettingsUiUpdate
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,

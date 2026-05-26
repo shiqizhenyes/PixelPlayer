@@ -194,7 +194,7 @@ fun CrashReportDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.dismiss))
+                Text(stringResource(R.string.dismiss), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     )

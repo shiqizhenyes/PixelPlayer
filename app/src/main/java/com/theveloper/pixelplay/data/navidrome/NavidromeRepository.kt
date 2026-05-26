@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.theveloper.pixelplay.data.navidrome
 
 import android.content.Context
@@ -51,6 +52,7 @@ import androidx.core.content.edit
  *
  * Manages authentication, playlist synchronization, and song caching.
  */
+@Suppress("DEPRECATION")
 @Singleton
 class NavidromeRepository @Inject constructor(
     private val api: NavidromeApiService,

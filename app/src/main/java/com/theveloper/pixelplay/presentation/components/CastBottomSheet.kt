@@ -24,7 +24,6 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -140,6 +139,7 @@ import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import android.content.pm.PackageManager
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.LocalOverscrollFactory
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -310,7 +310,7 @@ fun CastBottomSheet(
         val isBluetoothAudio = isBluetoothEnabled && !activeBluetoothName.isNullOrEmpty()
         ActiveDeviceUi(
             id = "phone",
-            title = if (isBluetoothAudio) activeBluetoothName!! else stringResource(R.string.presentation_batch_g_cast_this_phone),
+            title = if (isBluetoothAudio) activeBluetoothName else stringResource(R.string.presentation_batch_g_cast_this_phone),
             subtitle = if (isBluetoothAudio) stringResource(R.string.presentation_batch_g_cast_bluetooth_audio) else stringResource(R.string.presentation_batch_g_cast_local_playback),
             isRemote = false,
             icon = if (isBluetoothAudio) Icons.Rounded.Bluetooth else Icons.Rounded.Headphones,
@@ -506,7 +506,7 @@ private fun CastPermissionStep(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(50)
         ) {
-            Text(text = stringResource(R.string.presentation_batch_g_cast_allow_access))
+            Text(text = stringResource(R.string.presentation_batch_g_cast_allow_access), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
 
         if (missingPermissions.isNotEmpty()) {
@@ -810,14 +810,6 @@ private fun CastControlsTabContent(
                 onBluetoothClick = onOpenBluetoothSettings
             )
         }
-
-        if (allConnectivityOff) {
-            WifiOffIllustration(
-                onTurnOnWifi = onTurnOnWifi,
-                onOpenBluetoothSettings = onOpenBluetoothSettings
-            )
-        }
-
         Spacer(modifier = Modifier.height(bottomSpacing))
     }
 }
@@ -870,14 +862,7 @@ private fun CastDevicesTabContent(
             }
         }
 
-        if (allConnectivityOff) {
-            item(key = "wifiOff") {
-                WifiOffIllustration(
-                    onTurnOnWifi = onTurnOnWifi,
-                    onOpenBluetoothSettings = onOpenBluetoothSettings
-                )
-            }
-        } else if (state.isScanning && state.devices.isEmpty()) {
+        if (state.isScanning && state.devices.isEmpty()) {
             item(key = "scanningPlaceholder") {
                 ScanningPlaceholderList()
             }
@@ -1879,87 +1864,6 @@ private fun QuickSettingTile(
                     overflow = TextOverflow.Ellipsis,
                     color = contentColor.copy(alpha = 0.7f)
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WifiOffIllustration(
-    onTurnOnWifi: () -> Unit,
-    onOpenBluetoothSettings: () -> Unit
-) {
-    val shape = AbsoluteSmoothCornerShape(
-        cornerRadiusTL = 38.dp,
-        cornerRadiusTR = 20.dp,
-        cornerRadiusBL = 20.dp,
-        cornerRadiusBR = 38.dp,
-        smoothnessAsPercentTL = 70,
-        smoothnessAsPercentTR = 70,
-        smoothnessAsPercentBL = 70,
-        smoothnessAsPercentBR = 70
-    )
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = shape,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            val prim1 = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-            val prim2 = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-            val prim3 = MaterialTheme.colorScheme.primary
-            Canvas(modifier = Modifier.size(120.dp)) {
-                drawCircle(color = prim1, radius = size.minDimension / 2)
-                drawCircle(
-                    color = prim2,
-                    radius = size.minDimension / 3,
-                    style = Stroke(width = 10.dp.toPx())
-                )
-                drawCircle(color = prim3, radius = size.minDimension / 6)
-            }
-            Text(
-                text = stringResource(R.string.presentation_batch_g_cast_connections_off_title),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-            )
-            Text(
-                text = stringResource(R.string.presentation_batch_g_cast_connections_off_body),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                lineHeight = 20.sp
-            )
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Button(
-                    onClick = onTurnOnWifi,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text(stringResource(R.string.presentation_batch_g_cast_turn_on_wifi))
-                }
-
-                Button(
-                    onClick = onOpenBluetoothSettings,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                ) {
-                    Text(stringResource(R.string.presentation_batch_g_cast_open_bluetooth))
-                }
             }
         }
     }

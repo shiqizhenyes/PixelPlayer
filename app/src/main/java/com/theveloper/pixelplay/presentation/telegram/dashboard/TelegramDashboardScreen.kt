@@ -90,7 +90,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import com.theveloper.pixelplay.R
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.theveloper.pixelplay.data.database.TelegramChannelEntity
 import com.theveloper.pixelplay.data.database.TelegramTopicEntity
@@ -330,7 +330,7 @@ fun TelegramDashboardScreen(
             }
             AlertDialog(
                 onDismissRequest = { channelPendingRemoval = null },
-                icon = { Icon(Icons.Rounded.Delete, contentDescription = null) },
+                icon = { Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                 title = {
                     Text(
                         text = stringResource(R.string.presentation_batch_f_remove_channel_confirm_title),
@@ -343,7 +343,8 @@ fun TelegramDashboardScreen(
                             R.string.presentation_batch_f_remove_channel_confirm_body,
                             channelLabel
                         ),
-                        fontFamily = GoogleSansRounded
+                        fontFamily = GoogleSansRounded,
+                        textAlign = TextAlign.Center
                     )
                 },
                 confirmButton = {
@@ -354,7 +355,8 @@ fun TelegramDashboardScreen(
                         Text(
                             text = stringResource(R.string.presentation_batch_f_remove_channel_confirm_action),
                             fontFamily = GoogleSansRounded,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 },
@@ -955,7 +957,7 @@ private fun ExpressiveEmptyState(
                 modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.size(8.dp))
-            Text(stringResource(R.string.presentation_batch_f_add_channel_button))
+            Text(stringResource(R.string.presentation_batch_f_add_channel_button), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

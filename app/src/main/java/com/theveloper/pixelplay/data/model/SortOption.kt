@@ -170,12 +170,19 @@ sealed class SortOption(
         methodKey = "artist_name",
         direction = SortDirection.Descending
     )
-    object ArtistNumSongs : SortOption(
-        storageKey = "artist_num_songs",
-        displayName = "Number of Songs",
+    object ArtistNumSongsDesc : SortOption(
+        storageKey = "artist_num_songs_desc",
+        displayName = "Number of Songs (Most)",
         methodLabel = "Number of Songs",
         methodKey = "artist_num_songs",
         direction = SortDirection.Descending
+    )
+    object ArtistNumSongsAsc : SortOption(
+        storageKey = "artist_num_songs_asc",
+        displayName = "Number of Songs (Fewest)",
+        methodLabel = "Number of Songs",
+        methodKey = "artist_num_songs",
+        direction = SortDirection.Ascending
     )
 
     // Playlist Sort Options
@@ -367,7 +374,8 @@ sealed class SortOption(
             listOf(
                 ArtistNameAZ,
                 ArtistNameZA,
-                ArtistNumSongs
+                ArtistNumSongsDesc,
+                ArtistNumSongsAsc
             )
         }
 

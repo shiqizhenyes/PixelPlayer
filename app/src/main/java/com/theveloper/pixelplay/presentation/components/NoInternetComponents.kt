@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.theveloper.pixelplay.R
+import androidx.compose.ui.text.style.TextOverflow
 
 @Composable
 fun NoInternetDialog(
@@ -55,7 +56,7 @@ fun NoInternetDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.ok))
+                Text(stringResource(R.string.ok), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     )
@@ -108,7 +109,7 @@ fun NoInternetScreen(
                 onClick = onRetry,
                 modifier = Modifier.fillMaxWidth(0.5f)
             ) {
-                Text(stringResource(R.string.auth_web_retry))
+                Text(stringResource(R.string.auth_web_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

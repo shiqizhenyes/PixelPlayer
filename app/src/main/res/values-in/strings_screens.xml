@@ -131,6 +131,8 @@
 
     <!-- Home / detail shared -->
     <string name="home_your_mix_title">Your\nMix</string>
+    <string name="home_empty_placeholder_subtitle">Mix Anda akan muncul di sini saat PixelPlayer menemukan lagu atau menyinkronkan sumber.</string>
+    <string name="home_empty_placeholder_refresh">Refresh</string>
     <string name="cd_shuffle_play">Putar Acak</string>
     <string name="cd_album_art_for_title">Sampul album untuk %1$s</string>
     <string name="cd_options">Opsi</string>
@@ -213,6 +215,7 @@
     <string name="dash_status_syncing">Menyinkronkan</string>
     <string name="dash_action_sync_library">Sinkronkan pustaka</string>
     <string name="dash_action_disconnect">Putuskan sambungan</string>
+    <string name="dash_status_library_sync_complete">Sinkronisasi pustaka selesai</string>
     <string name="dash_song_count">%1$d lagu</string>
     <string name="cd_sync">Sinkronisasi</string>
     <string name="cd_sync_all">Sinkronkan semua</string>
@@ -236,4 +239,14 @@
     <string name="toast_added_to_queue">Ditambahkan ke antrean</string>
     <string name="toast_playing_next">Diputar berikutnya</string>
     <string name="error_share_song_format">Tidak dapat membagikan lagu: %1$s</string>
+    <string name="dash_status_syncing_library">Menyinkronkan pustaka...</string>
+    <string name="home_empty_placeholder_title">Belum ada data untuk ditampilkan</string>
+    <string name="dash_status_fetching_playlists">Mengambil playlist...</string>
+    <string name="dash_status_syncing_playlist_format">Menyinkronkan playlist: %1$s</string>
+    <string name="dash_status_updating_local">Memperbarui pustaka lokal...</string>
+    <string name="dash_status_sync_complete">Sinkronisasi selesai</string>
+    <string name="dash_status_fetching_albums">Mengambil daftar album...</string>
+    <string name="dash_status_fetching_songs_from_format">Mengambil lagu dari %1$s...</string>
+    <string name="dash_status_saving_songs_format">Menyimpan %1$d lagu ke database...</string>
+    <string name="dash_status_no_songs_found">Tidak ada lagu pustaka ditemukan</string>
 </resources>

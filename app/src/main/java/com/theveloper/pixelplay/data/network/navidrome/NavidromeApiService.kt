@@ -146,7 +146,7 @@ class NavidromeApiService @Inject constructor(
 
                 okHttpClient.newCall(request).execute().use { response ->
                     val code = response.code
-                    val body = response.body?.string() ?: ""
+                    val body = response.body.string()
 
                     if (!response.isSuccessful) {
                         Timber.w("$TAG: <<< HTTP $code for $endpoint")

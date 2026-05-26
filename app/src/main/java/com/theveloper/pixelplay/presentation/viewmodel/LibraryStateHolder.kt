@@ -475,8 +475,13 @@ class LibraryStateHolder @Inject constructor(
                 compareByDescending<Artist> { it.name.lowercase() }
                     .thenBy { it.id }
             )
-            SortOption.ArtistNumSongs -> artists.sortedWith(
+            SortOption.ArtistNumSongsDesc -> artists.sortedWith(
                 compareByDescending<Artist> { it.songCount }
+                    .thenBy { it.name.lowercase() }
+                    .thenBy { it.id }
+            )
+            SortOption.ArtistNumSongsAsc -> artists.sortedWith(
+                compareBy<Artist> { it.songCount }
                     .thenBy { it.name.lowercase() }
                     .thenBy { it.id }
             )

@@ -11,6 +11,7 @@
     <string name="presentation_batch_f_sync_phase_processing_tracks">Memproses trek</string>
     <string name="presentation_batch_f_sync_phase_saving_db">Menyimpan ke database</string>
     <string name="presentation_batch_f_sync_phase_scanning_lrc">Memindai file lirik</string>
+    <string name="presentation_batch_f_sync_phase_syncing_cloud">Menyinkronkan sumber cloud...</string>
     <string name="presentation_batch_f_sync_phase_completing">Menyelesaikan sinkronisasi</string>
     <string name="presentation_batch_f_sync_progress_detailed">%1$s • %2$d%% (%3$d/%4$d)</string>
     <string name="presentation_batch_f_sync_progress_indeterminate">%1$s…</string>
@@ -202,6 +203,8 @@
     <string name="presentation_batch_f_fetch_latest_songs">Ambil lagu terbaru dari saluran ini</string>
     <string name="presentation_batch_f_remove_channel">Hapus saluran</string>
     <string name="presentation_batch_f_remove_channel_subtitle">Berhenti menyinkronkan dan hapus lagu yang dicache</string>
+    <string name="presentation_batch_f_remove_channel_confirm_body">%1$s akan berhenti disinkronkan dan semua lagu cache dari channel ini akan dihapus.</string>
+    <string name="presentation_batch_f_remove_channel_confirm_action">Hapus</string>
     <string name="presentation_batch_f_no_channels_synced">Tidak Ada Saluran yang Disinkronkan</string>
     <string name="presentation_batch_f_no_channels_body">Tambahkan saluran Telegram publik untuk menyinkronkan\npustaka musik Anda</string>
     <string name="presentation_batch_f_add_channel_button">Tambah saluran</string>
@@ -226,4 +229,6 @@
         <item quantity="one">%d topik</item>
         <item quantity="other">%d topik</item>
     </plurals>
+    <string name="presentation_batch_f_sync_phase_cleaning_cache">Membersihkan cache sampul album...</string>
+    <string name="presentation_batch_f_remove_channel_confirm_title">Hapus channel?</string>
 </resources>

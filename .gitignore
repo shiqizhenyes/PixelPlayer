@@ -36,6 +36,7 @@ shared/build/
 baselineprofile/build/
 
 misc.xml
+CLAUDE.md
 markdown.xml
 .vscode/
 .agents/

@@ -48,7 +48,8 @@ enum class LibraryTabId(
         sortOptions = listOf(
             SortOption.ArtistNameAZ,
             SortOption.ArtistNameZA,
-            SortOption.ArtistNumSongs
+            SortOption.ArtistNumSongsDesc,
+            SortOption.ArtistNumSongsAsc
         )
     ),
     Playlists(

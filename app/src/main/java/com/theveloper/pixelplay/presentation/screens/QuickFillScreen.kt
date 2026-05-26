@@ -222,7 +222,7 @@ fun QuickFillContent(
                             contentPadding = PaddingValues(horizontal = 16.dp),
                             modifier = Modifier.fillMaxHeight()
                         ) {
-                            Text(stringResource(R.string.presentation_batch_b_select_all), style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.presentation_batch_b_select_all), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         
                         // Divider/Spacer
@@ -238,7 +238,7 @@ fun QuickFillContent(
                             contentPadding = PaddingValues(horizontal = 16.dp),
                             modifier = Modifier.fillMaxHeight()
                         ) {
-                            Text(stringResource(R.string.presentation_batch_b_clear), style = MaterialTheme.typography.labelLarge)
+                            Text(stringResource(R.string.presentation_batch_b_clear), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
                     Spacer(modifier = Modifier.weight(1f))
@@ -458,10 +458,10 @@ fun GenreValidatorContent(
                             showCustomDialog = false
                         }
                     }
-                ) { Text(addLabel) }
+                ) { Text(addLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             },
             dismissButton = {
-                TextButton(onClick = { showCustomDialog = false }) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = { showCustomDialog = false }) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         )
     }

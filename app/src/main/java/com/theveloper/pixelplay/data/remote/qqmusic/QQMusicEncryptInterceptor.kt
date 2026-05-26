@@ -62,7 +62,7 @@ class QQMusicEncryptInterceptor(
         Timber.d("QQMusicEncryptInterceptor: Response code: ${response.code}")
         
         if (response.isSuccessful) {
-            val responseBytes = response.body?.bytes() ?: return response
+            val responseBytes = response.body.bytes()
             Timber.d("QQMusicEncryptInterceptor: Response body size: ${responseBytes.size}")
             
             // 6. Decrypt response using vm_new.js (__cgiDecrypt) first, then fallback to XOR.

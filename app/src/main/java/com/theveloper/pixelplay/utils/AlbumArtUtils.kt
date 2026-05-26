@@ -16,7 +16,7 @@ import java.io.FileInputStream
 import java.io.InputStream
 
 object AlbumArtUtils {
-    private const val CACHE_VERSION_SUFFIX = "_v3"
+    private const val CACHE_VERSION_SUFFIX = "_v4"
 
     // P2-1: Dedicated app-level scope to replace GlobalScope.
     // SupervisorJob ensures child failures don't cancel sibling coroutines.
@@ -269,6 +269,8 @@ object AlbumArtUtils {
         listOf(
             getCachedAlbumArtFile(appContext, songId),
             noArtMarkerFile(appContext, songId),
+            legacyCachedAlbumArtFile(appContext, songId, "_v3"),
+            legacyNoArtMarkerFile(appContext, songId, "_v3"),
             legacyCachedAlbumArtFile(appContext, songId, "_v2"),
             legacyNoArtMarkerFile(appContext, songId, "_v2"),
             legacyCachedAlbumArtFile(appContext, songId),

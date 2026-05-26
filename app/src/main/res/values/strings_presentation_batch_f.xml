@@ -52,8 +52,13 @@
     <string name="presentation_batch_f_auto_generated_collage">Auto-generated collage</string>
     <string name="presentation_batch_f_cd_add_photo">Add Photo</string>
     <string name="presentation_batch_f_pick_image">Pick Image</string>
+    <string name="presentation_batch_f_change">Change</string>
+    <string name="presentation_batch_f_remove">Remove</string>
     <string name="presentation_batch_f_playlist_name_label">Playlist Name</string>
     <string name="presentation_batch_f_playlist_name_placeholder">My awesome mix</string>
+    <string name="presentation_batch_f_edit_cover_title">Edit Cover</string>
+    <string name="presentation_batch_f_adjust_cover_title">Adjust your cover art</string>
+    <string name="presentation_batch_f_adjust_cover_hint">Use pinch and drag gestures to find the perfect framing</string>
     <string name="presentation_batch_f_creation_mode_manual">Manual</string>
     <string name="presentation_batch_f_creation_mode_smart">Smart</string>
     <string name="presentation_batch_f_generate_with_ai">Generate with AI</string>

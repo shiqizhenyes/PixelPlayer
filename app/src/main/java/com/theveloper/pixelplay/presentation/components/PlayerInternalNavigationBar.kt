@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 internal val NavBarContentHeight = 90.dp // Altura del contenido de la barra de navegación
 internal val NavBarCompactContentHeight = 64.dp
 internal val NavBarContentHeightFullWidth = NavBarContentHeight // Altura del contenido de la barra de navegación en modo completo
+private val MainScreenBottomGradientExtraHeight = MiniPlayerHeight + MiniPlayerBottomSpacer + 8.dp
 // Some OEM freeform/floating-window modes can report a bottom inset close to the whole window height.
 internal val MaxNavigationBarBottomInset = 96.dp
 
@@ -63,6 +64,9 @@ internal fun calculatePlayerSheetCollapsedTargetY(
 
 internal fun resolveNavBarContentHeight(compactMode: Boolean): Dp =
     if (compactMode) NavBarCompactContentHeight else NavBarContentHeight
+
+internal fun resolveMainScreenBottomGradientHeight(compactMode: Boolean): Dp =
+    resolveNavBarContentHeight(compactMode) + MainScreenBottomGradientExtraHeight
 
 internal fun resolveNavBarSurfaceHeight(
     navBarStyle: String,

@@ -54,6 +54,7 @@ import androidx.paging.LoadState
 import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.presentation.components.ExpressiveScrollBar
 import com.theveloper.pixelplay.presentation.components.songFastScrollLabel
+import androidx.compose.ui.text.style.TextOverflow
 
 
 @androidx.annotation.OptIn(UnstableApi::class)
@@ -240,7 +241,7 @@ fun LibrarySongsTab(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = { songs.retry() }) {
-                        Text(stringResource(R.string.library_retry))
+                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

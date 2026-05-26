@@ -16,6 +16,7 @@ data class AudioMetadata(
     val albumArtist: String?,
     val album: String?,
     val genre: String?,
+    val composer: String?,
     val lyrics: String?,
     val durationMs: Long?,
     val trackNumber: Int?,
@@ -77,6 +78,8 @@ object AudioMetadataReader {
                     ?: propertyMap["BAND"]?.firstOrNull()?.takeIf { it.isNotBlank() }
                 val album = propertyMap["ALBUM"]?.firstOrNull()?.takeIf { it.isNotBlank() }
                 val genre = propertyMap["GENRE"]?.firstOrNull()?.takeIf { it.isNotBlank() }
+                val composer = propertyMap["COMPOSER"]?.firstOrNull()?.takeIf { it.isNotBlank() }
+                    ?: propertyMap["TCOM"]?.firstOrNull()?.takeIf { it.isNotBlank() }
                 val lyrics = propertyMap["LYRICS"]?.firstOrNull()?.takeIf { it.isNotBlank() }
                     ?: propertyMap["UNSYNCEDLYRICS"]?.firstOrNull()?.takeIf { it.isNotBlank() }
                 val trackString = propertyMap["TRACKNUMBER"]?.firstOrNull()?.takeIf { it.isNotBlank() }
@@ -127,6 +130,7 @@ object AudioMetadataReader {
                     albumArtist = albumArtist ?: fallback?.albumArtist,
                     album = album ?: fallback?.album,
                     genre = genre ?: fallback?.genre,
+                    composer = composer ?: fallback?.composer,
                     lyrics = lyrics ?: fallback?.lyrics,
                     durationMs = durationMs ?: fallback?.durationMs,
                     trackNumber = trackNumber ?: fallback?.trackNumber,
@@ -166,6 +170,7 @@ object AudioMetadataReader {
             val albumArtist = tag?.getFirst(FieldKey.ALBUM_ARTIST)?.takeIf { it.isNotBlank() }
             val album = tag?.getFirst(FieldKey.ALBUM)?.takeIf { it.isNotBlank() }
             val genre = tag?.getFirst(FieldKey.GENRE)?.takeIf { it.isNotBlank() }
+            val composer = tag?.getFirst(FieldKey.COMPOSER)?.takeIf { it.isNotBlank() }
             val lyrics = tag?.getFirst(FieldKey.LYRICS)?.takeIf { it.isNotBlank() }
             val trackNumber = tag?.getFirst(FieldKey.TRACK)?.takeIf { it.isNotBlank() }
                 ?.substringBefore('/')?.toIntOrNull()
@@ -197,6 +202,7 @@ object AudioMetadataReader {
                 albumArtist = albumArtist,
                 album = album,
                 genre = genre,
+                composer = composer,
                 lyrics = lyrics,
                 durationMs = durationMs,
                 trackNumber = trackNumber,

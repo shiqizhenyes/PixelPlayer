@@ -823,11 +823,7 @@ private fun ContributorAvatar(
                     targetSize = Size(96, 96),
                     onState = { state ->
                         if (state is AsyncImagePainter.State.Success) {
-                            val drawable = state.result.drawable
-                            val bitmap = drawable?.toBitmap()?.asImageBitmap()
-                            if (bitmap != null) {
-                                cachedBitmap = bitmap
-                            }
+                            cachedBitmap = state.result.drawable.toBitmap().asImageBitmap()
                         }
                     },
                 )
@@ -855,7 +851,7 @@ private fun ContributorAvatar(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = initial.toString(),
+                        text = initial,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = letterTint,
                     )

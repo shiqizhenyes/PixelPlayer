@@ -12,6 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerSheetState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 
 internal data class FullPlayerCompositionPolicy(
     val shouldRenderFullPlayer: Boolean
@@ -51,15 +52,18 @@ internal fun rememberFullPlayerCompositionPolicy(
     }
 
     // Monitor expansion fraction via snapshotFlow instead of using it as a
-    // LaunchedEffect key. The old approach relaunched the effect on every frame.
+    // LaunchedEffect key. Once either condition is satisfied
+    // (expansion crossed 0.12f, or the warm-delay coroutine flipped
+    // keepFullPlayerComposed itself) we can exit. The previous `collect`
+    // never terminated — it kept reading expansionFraction on every frame
+    // for the rest of the song's lifetime, even though there was nothing
+    // left to do once keepFullPlayerComposed was true.
     LaunchedEffect(currentSongId) {
         if (currentSongId == null) return@LaunchedEffect
-        snapshotFlow { expansionFraction.value }
-            .collect { fraction ->
-                if (fraction > 0.12f && !keepFullPlayerComposed) {
-                    keepFullPlayerComposed = true
-                }
-            }
+        snapshotFlow {
+            keepFullPlayerComposed || expansionFraction.value > 0.12f
+        }.first { it }
+        if (!keepFullPlayerComposed) keepFullPlayerComposed = true
     }
 
     // Read expansion fraction inside derivedStateOf so that changes only trigger

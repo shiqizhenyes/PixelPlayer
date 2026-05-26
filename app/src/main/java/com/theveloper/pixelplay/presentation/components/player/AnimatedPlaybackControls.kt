@@ -3,10 +3,8 @@ package com.theveloper.pixelplay.presentation.components.player
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -161,12 +159,15 @@ fun AnimatedPlaybackControls(
                 animationSpec = pressAnimationSpec,
                 label = "playWeight"
             )
+            // Tween (matching the Crossfade duration) instead of a spring with
+            // StiffnessMedium. The old spring took ~600 ms to settle and read
+            // playCorner in the composition phase, recomposing AnimatedPlaybackControls
+            // every frame for the entire settle. A bounded 220 ms tween that completes
+            // alongside the icon Crossfade keeps the recomposition window small enough
+            // that it doesn't overlap with a subsequent sheet-collapse gesture.
             val playCorner by animateDpAsState(
                 targetValue = if (!playPauseVisualState) playPauseCornerPlaying else playPauseCornerPaused,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMedium
-                ),
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
                 label = "playCorner"
             )
             val playShape = AbsoluteSmoothCornerShape(

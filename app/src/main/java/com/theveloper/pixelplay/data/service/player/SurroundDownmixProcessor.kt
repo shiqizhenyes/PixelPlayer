@@ -1,3 +1,4 @@
+@file:Suppress("DEPRECATION")
 package com.theveloper.pixelplay.data.service.player
 
 import androidx.media3.common.C
@@ -157,6 +158,7 @@ class SurroundDownmixProcessor : AudioProcessor {
     override fun queueEndOfStream() { inputEnded = true }
 
     @Deprecated("Media3 AudioProcessor now prefers flush(StreamMetadata); kept for interface compatibility")
+    @Suppress("DEPRECATION")
     override fun flush() {
         outputBuffer = AudioProcessor.EMPTY_BUFFER
         inputEnded = false
