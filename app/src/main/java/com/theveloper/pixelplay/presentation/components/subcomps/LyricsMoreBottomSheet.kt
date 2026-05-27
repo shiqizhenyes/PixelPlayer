@@ -68,6 +68,7 @@ fun LyricsMoreBottomSheet(
     isSyncControlsVisible: Boolean,
     onSaveLyricsAsLrc: () -> Unit,
     onResetImportedLyrics: () -> Unit,
+    onTranslateViaAi: () -> Unit,
     onToggleSyncControls: () -> Unit,
     isImmersiveTemporarilyDisabled: Boolean,
     onSetImmersiveTemporarilyDisabled: (Boolean) -> Unit,
@@ -148,6 +149,32 @@ fun LyricsMoreBottomSheet(
                             .clickable {
                                 onDismissRequest()
                                 onSaveLyricsAsLrc()
+                            },
+                        colors = ListItemDefaults.colors(
+                            containerColor = Color.Transparent,
+                            headlineColor = contentColor,
+                            leadingIconColor = contentColor
+                        )
+                    )
+                }
+
+                // Translate via AI
+                if (lyrics != null) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.ai_translate_via_ai)) },
+                        leadingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.Translate,
+                                contentDescription = null
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(itemBackgroundColor)
+                            .clickable {
+                                onDismissRequest()
+                                onTranslateViaAi()
                             },
                         colors = ListItemDefaults.colors(
                             containerColor = Color.Transparent,
