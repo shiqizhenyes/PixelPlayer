@@ -93,6 +93,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import android.text.format.DateFormat as AndroidDateFormat
 import racra.compose.smooth_corner_rect_library.AbsoluteSmoothCornerShape
 import androidx.compose.ui.res.stringResource
 
@@ -765,7 +766,12 @@ private fun resolveTimestampBucket(
             .withNano(0)
         return TimestampBucket(
             key = hourStart.toInstant().toEpochMilli().toString(),
-            label = hourStart.format(DateTimeFormatter.ofPattern("h a", Locale.getDefault())),
+            label = hourStart.format(
+                DateTimeFormatter.ofPattern(
+                    if (AndroidDateFormat.is24HourFormat(context)) "HH:mm" else "h a",
+                    Locale.getDefault()
+                )
+            ),
             isHourBucket = true
         )
     }
