@@ -200,9 +200,11 @@ class ColorSchemeProcessor @Inject constructor(
             
             val drawable = context.imageLoader.execute(request).drawable ?: return null
             
+            // Drawables without intrinsic dimensions report -1; fall back to a usable size so we
+            // don't extract a seed color from a 1x1 bitmap.
             createBitmap(
-                drawable.intrinsicWidth.coerceAtLeast(1),
-                drawable.intrinsicHeight.coerceAtLeast(1)
+                drawable.intrinsicWidth.takeIf { it > 0 } ?: 128,
+                drawable.intrinsicHeight.takeIf { it > 0 } ?: 128
             ).also { bmp ->
                 Canvas(bmp).let { canvas ->
                     drawable.setBounds(0, 0, canvas.width, canvas.height)

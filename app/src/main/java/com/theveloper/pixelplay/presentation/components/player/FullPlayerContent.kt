@@ -73,6 +73,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberUpdatedState
@@ -1489,8 +1491,10 @@ private fun SongMetadataDisplaySection(
             )
         }
         
-        val stablePlayerState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
-        val isBuffering = stablePlayerState.isBuffering
+        // Slice isBuffering rather than collecting the whole stablePlayerState in this hot path.
+        val isBuffering by remember(playerViewModel) {
+            playerViewModel.stablePlayerState.map { it.isBuffering }.distinctUntilChanged()
+        }.collectAsStateWithLifecycle(initialValue = playerViewModel.stablePlayerState.value.isBuffering)
 
 
         AnimatedVisibility(

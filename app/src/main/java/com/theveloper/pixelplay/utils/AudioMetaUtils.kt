@@ -3,8 +3,8 @@ package com.theveloper.pixelplay.utils
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
-import android.util.Log
 import com.theveloper.pixelplay.data.database.MusicDao
+import timber.log.Timber
 import java.io.File
 import java.util.Locale
 
@@ -44,31 +44,32 @@ object AudioMetaUtils {
                 bitrate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull()
                 sampleRate = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_SAMPLERATE)?.toIntOrNull()
             } catch (e: Exception) {
-                Log.w("AudioMetaUtils", "Retriever failed for $filePath: ${e.message}")
+                Timber.tag("AudioMetaUtils").w(e, "Retriever failed for $filePath")
             }
         }
 
         // Fallback with MediaExtractor
+        val extractor = MediaExtractor()
         try {
-            MediaExtractor().apply {
-                setDataSource(filePath)
-                for (i in 0 until trackCount) {
-                    val format: MediaFormat = getTrackFormat(i)
-                    val trackMime = format.getString(MediaFormat.KEY_MIME)
-                    if (trackMime?.startsWith("audio/") == true) {
-                        mimeType = mimeType ?: trackMime
-                        sampleRate =
-                            sampleRate ?: format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
-                        bitrate = bitrate ?: if (format.containsKey(MediaFormat.KEY_BIT_RATE)) {
-                            format.getInteger(MediaFormat.KEY_BIT_RATE)
-                        } else null
-                        break
-                    }
+            extractor.setDataSource(filePath)
+            for (i in 0 until extractor.trackCount) {
+                val format: MediaFormat = extractor.getTrackFormat(i)
+                val trackMime = format.getString(MediaFormat.KEY_MIME)
+                if (trackMime?.startsWith("audio/") == true) {
+                    mimeType = mimeType ?: trackMime
+                    sampleRate = sampleRate ?: if (format.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+                        format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+                    } else null
+                    bitrate = bitrate ?: if (format.containsKey(MediaFormat.KEY_BIT_RATE)) {
+                        format.getInteger(MediaFormat.KEY_BIT_RATE)
+                    } else null
+                    break
                 }
-                release()
             }
         } catch (e: Exception) {
-            Log.w("AudioMetaUtils", "Extractor failed for $filePath: ${e.message}")
+            Timber.tag("AudioMetaUtils").w(e, "Extractor failed for $filePath")
+        } finally {
+            runCatching { extractor.release() }
         }
 
         return AudioMeta(mimeType, bitrate, sampleRate)

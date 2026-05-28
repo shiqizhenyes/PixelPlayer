@@ -12,7 +12,9 @@ class SleepTimerReceiver : BroadcastReceiver() {
             action = MusicService.ACTION_SLEEP_TIMER_EXPIRED
         }
         try {
-            context.startService(serviceIntent)
+            // The alarm fires while the app is typically backgrounded; startService() throws on
+            // API 26+ in that state. MusicService is a foreground media service, so start it as one.
+            context.startForegroundService(serviceIntent)
         } catch (e: Exception) {
             Timber.tag("SleepTimerReceiver").e(e, "Failed to start service for sleep timer")
         }

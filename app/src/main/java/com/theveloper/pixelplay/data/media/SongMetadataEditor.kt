@@ -559,9 +559,36 @@ class SongMetadataEditor(
                 Timber.tag(TAG).e("METADATA_EDIT: Writer failed on temp file ${tempFile.absolutePath}")
                 return false
             }
-            // Stream edited bytes back to the original path (truncate + overwrite).
-            tempFile.inputStream().use { input ->
-                FileOutputStream(originalFile, false).use { out -> input.copyTo(out) }
+            // Back up the original before truncating it so an interrupted write-back can be rolled
+            // back — otherwise a mid-write failure leaves the source audio irrecoverably corrupted.
+            val backupFile = File("${originalFile.absolutePath}.metabak_${System.nanoTime()}")
+            val backupOk = runCatching {
+                originalFile.inputStream().use { input ->
+                    FileOutputStream(backupFile).use { out -> input.copyTo(out) }
+                }
+            }.isSuccess
+            if (!backupOk) {
+                Timber.tag(TAG).w("METADATA_EDIT: Could not back up original before write-back: $originalPath")
+            }
+            try {
+                // Stream edited bytes back to the original path (truncate + overwrite).
+                tempFile.inputStream().use { input ->
+                    FileOutputStream(originalFile, false).use { out -> input.copyTo(out) }
+                }
+            } catch (writeError: Exception) {
+                if (backupOk) {
+                    Timber.tag(TAG).w(writeError, "METADATA_EDIT: write-back failed; restoring original from backup")
+                    runCatching {
+                        backupFile.inputStream().use { input ->
+                            FileOutputStream(originalFile, false).use { out -> input.copyTo(out) }
+                        }
+                    }
+                }
+                throw writeError
+            } finally {
+                if (backupFile.exists() && !backupFile.delete()) {
+                    Timber.tag(TAG).w("METADATA_EDIT: Could not delete backup file ${backupFile.absolutePath}")
+                }
             }
             Timber.tag(TAG).d(
                 "METADATA_EDIT: Restored ${tempFile.length()} edited bytes back to $originalPath"
@@ -1041,10 +1068,37 @@ class SongMetadataEditor(
             Timber.tag(TAG)
                 .e("VORBISJAVA: Temp file size: ${tempFile.length()} bytes, original: ${audioFile.length()} bytes")
             
-            tempFile.inputStream().use { input ->
-                FileOutputStream(audioFile, false).use { output ->
-                    input.copyTo(output)
-                    output.fd.sync()
+            // Back up the original before truncating it so an interrupted write-back can be rolled
+            // back — otherwise a mid-write failure leaves the source Opus file irrecoverably corrupted.
+            val backupFile = File("${audioFile.absolutePath}.metabak_${System.nanoTime()}")
+            val backupOk = runCatching {
+                audioFile.inputStream().use { input ->
+                    FileOutputStream(backupFile).use { out -> input.copyTo(out) }
+                }
+            }.isSuccess
+            if (!backupOk) {
+                Timber.tag(TAG).w("VORBISJAVA: Could not back up original before write-back: ${audioFile.path}")
+            }
+            try {
+                tempFile.inputStream().use { input ->
+                    FileOutputStream(audioFile, false).use { output ->
+                        input.copyTo(output)
+                        output.fd.sync()
+                    }
+                }
+            } catch (writeError: Exception) {
+                if (backupOk) {
+                    Timber.tag(TAG).w(writeError, "VORBISJAVA: write-back failed; restoring original from backup")
+                    runCatching {
+                        backupFile.inputStream().use { input ->
+                            FileOutputStream(audioFile, false).use { out -> input.copyTo(out) }
+                        }
+                    }
+                }
+                throw writeError
+            } finally {
+                if (backupFile.exists() && !backupFile.delete()) {
+                    Timber.tag(TAG).w("VORBISJAVA: Could not delete backup file ${backupFile.absolutePath}")
                 }
             }
 
@@ -1154,6 +1208,8 @@ class SongMetadataEditor(
     }
     private fun saveCoverArtPreview(songId: Long, coverArtUpdate: CoverArtUpdate): String? {
         return try {
+            // bytes is nullable (e.g. a deletion update); guard before write to avoid an NPE.
+            val artBytes = coverArtUpdate.bytes ?: return null
             val extension = imageExtensionFromMimeType(coverArtUpdate.mimeType) ?: "jpg"
             val directory = File(context.cacheDir, "").apply {
                 if (!exists()) mkdirs()
@@ -1167,7 +1223,7 @@ class SongMetadataEditor(
             // Save new cover art
             val file = File(directory, "song_art_${songId}_${System.currentTimeMillis()}.$extension")
             FileOutputStream(file).use { outputStream ->
-                outputStream.write(coverArtUpdate.bytes)
+                outputStream.write(artBytes)
             }
 
             file.toUri().toString()
@@ -1367,6 +1423,7 @@ data class CoverArtUpdate(
 
         if (!bytes.contentEquals(other.bytes)) return false
         if (mimeType != other.mimeType) return false
+        if (isDeletion != other.isDeletion) return false
 
         return true
     }
@@ -1374,6 +1431,7 @@ data class CoverArtUpdate(
     override fun hashCode(): Int {
         var result = bytes.contentHashCode()
         result = 31 * result + mimeType.hashCode()
+        result = 31 * result + isDeletion.hashCode()
         return result
     }
 }

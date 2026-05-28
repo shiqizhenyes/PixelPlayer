@@ -52,6 +52,11 @@ class AutoMediaBrowseTree @Inject constructor(
 
         private const val MAX_RECENT_SONGS = 50
         private const val MAX_SEARCH_RESULTS = 30
+        // Per-category caps so album/artist results are never crowded out by song hits.
+        // These sum to MAX_SEARCH_RESULTS.
+        private const val MAX_SONG_SEARCH_RESULTS = 15
+        private const val MAX_ALBUM_SEARCH_RESULTS = 8
+        private const val MAX_ARTIST_SEARCH_RESULTS = 7
     }
 
     fun getRootItems(): List<MediaItem> {
@@ -121,17 +126,17 @@ class AutoMediaBrowseTree @Inject constructor(
         val results = mutableListOf<MediaItem>()
         val trimmedQuery = query.trim()
 
-        // Search songs
+        // Search songs (capped so albums/artists keep their budget)
         val songs = musicRepository.searchSongs(trimmedQuery).first()
-        results.addAll(songs.take(MAX_SEARCH_RESULTS).map { buildPlayableSongItem(it) })
+        results.addAll(songs.take(MAX_SONG_SEARCH_RESULTS).map { buildPlayableSongItem(it) })
 
         // Search albums
         val albums = musicRepository.searchAlbums(trimmedQuery).first()
-        results.addAll(albums.take(10).map { buildBrowsableAlbumItem(it) })
+        results.addAll(albums.take(MAX_ALBUM_SEARCH_RESULTS).map { buildBrowsableAlbumItem(it) })
 
         // Search artists
         val artists = musicRepository.searchArtists(trimmedQuery).first()
-        results.addAll(artists.take(10).map { buildBrowsableArtistItem(it) })
+        results.addAll(artists.take(MAX_ARTIST_SEARCH_RESULTS).map { buildBrowsableArtistItem(it) })
 
         return results.take(MAX_SEARCH_RESULTS)
     }

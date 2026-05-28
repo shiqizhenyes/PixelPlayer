@@ -149,6 +149,10 @@ class PlaylistsModuleHandler @Inject constructor(
         return try {
             val file = File(path)
             if (!file.exists() || file.length() == 0L) return null
+            if (file.length() > MAX_COVER_IMAGE_BYTES) {
+                Log.w(TAG, "Cover image too large (${file.length()} bytes), skipping: $path")
+                return null
+            }
             val bytes = file.readBytes()
             Base64.encodeToString(bytes, Base64.NO_WRAP)
         } catch (e: Exception) {
@@ -165,7 +169,10 @@ class PlaylistsModuleHandler @Inject constructor(
             val base64 = coverImages[playlist.id] ?: return@map playlist
             try {
                 val bytes = Base64.decode(base64, Base64.NO_WRAP)
-                val fileName = "playlist_cover_${playlist.id}.jpg"
+                // Sanitize the (untrusted) playlist id before using it in a filename to prevent
+                // path traversal (e.g. an id containing "../") into arbitrary app-private paths.
+                val safeId = playlist.id.replace(Regex("[^A-Za-z0-9_-]"), "_")
+                val fileName = "playlist_cover_${safeId}.jpg"
                 val file = File(context.filesDir, fileName)
                 file.writeBytes(bytes)
                 playlist.copy(coverImageUri = file.absolutePath)
@@ -372,6 +379,8 @@ class PlaylistsModuleHandler @Inject constructor(
     companion object {
         private const val TAG = "PlaylistsModuleHandler"
         private const val DURATION_TOLERANCE_MS = 2000L
+        /** Upper bound for a playlist cover image we will read into memory / Base64-encode. */
+        private const val MAX_COVER_IMAGE_BYTES = 10L * 1024 * 1024
 
         /** Playlist sources that are backed up. Cloud-sourced playlists are excluded. */
         private val LOCAL_SOURCES = setOf("LOCAL", "AI")

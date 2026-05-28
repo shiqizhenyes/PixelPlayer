@@ -121,9 +121,7 @@ class WearDataListenerService : WearableListenerService() {
                 try {
                     val dataClient = Wearable.getDataClient(this@WearDataListenerService)
                     val response = dataClient.getFdForAsset(asset).await()
-                    val inputStream = response.inputStream
-                    val bitmap = BitmapFactory.decodeStream(inputStream)
-                    inputStream.close()
+                    val bitmap = response.inputStream.use { BitmapFactory.decodeStream(it) }
                     stateRepository.updateAlbumArt(bitmap)
                     Timber.tag(TAG).d("Album art updated")
                 } catch (e: Exception) {

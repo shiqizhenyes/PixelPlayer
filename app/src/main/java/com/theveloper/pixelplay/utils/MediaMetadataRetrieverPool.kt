@@ -2,6 +2,7 @@ package com.theveloper.pixelplay.utils
 
 import android.media.MediaMetadataRetriever
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Thread-safe helper for MediaMetadataRetriever usage.
@@ -58,6 +59,8 @@ object MediaMetadataRetrieverPool {
         val retriever = acquire()
         return try {
             block(retriever)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             null
         } finally {

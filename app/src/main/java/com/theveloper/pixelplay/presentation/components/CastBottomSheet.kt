@@ -90,6 +90,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -179,7 +181,10 @@ fun CastBottomSheet(
     val isRemotePlaybackActive by playerViewModel.isRemotePlaybackActive.collectAsStateWithLifecycle()
     val isCastConnecting by playerViewModel.isCastConnecting.collectAsStateWithLifecycle()
     val trackVolume by playerViewModel.trackVolume.collectAsStateWithLifecycle()
-    val isPlaying = playerViewModel.stablePlayerState.collectAsStateWithLifecycle().value.isPlaying
+    // Slice isPlaying out of stablePlayerState so this sheet doesn't recompose on every state change.
+    val isPlaying by remember(playerViewModel) {
+        playerViewModel.stablePlayerState.map { it.isPlaying }.distinctUntilChanged()
+    }.collectAsStateWithLifecycle(initialValue = playerViewModel.stablePlayerState.value.isPlaying)
     val context = LocalContext.current
 
     val requiredPermissions = remember {

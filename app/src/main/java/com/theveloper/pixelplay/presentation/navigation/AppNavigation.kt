@@ -259,6 +259,8 @@ fun AppNavigation(
                             playerViewModel = playerViewModel,
                             onBackClick = { navController.popBackStack() }
                         )
+                    } else {
+                        Text(stringResource(R.string.nav_error_item_id_missing), modifier = Modifier)
                     }
                 }
             }
@@ -405,6 +407,8 @@ fun AppNavigation(
                             playerViewModel = playerViewModel
                         )
                     }
+                } else {
+                    Text(stringResource(R.string.nav_error_item_id_missing), modifier = Modifier)
                 }
             }
             composable(
@@ -424,10 +428,12 @@ fun AppNavigation(
                             playerViewModel = playerViewModel
                         )
                     }
+                } else {
+                    Text(stringResource(R.string.nav_error_item_id_missing), modifier = Modifier)
                 }
             }
             composable(
-                "nav_bar_corner_radius",
+                Screen.NavBarCrRad.route,
                 enterTransition = { enterTransition() },
                 exitTransition = { exitTransition() },
                 popEnterTransition = { popEnterTransition() },

@@ -216,60 +216,77 @@ class EqualizerPreferencesRepository @Inject constructor(
             preferences[Keys.PINNED_PRESETS] = json.encodeToString(presetNames)
         }
 
+    // Decode the persisted preset lists from a Preferences snapshot, mirroring the public flows.
+    // Used inside dataStore.edit{} so the read-modify-write is a single atomic transaction.
+    private fun Preferences.decodeCustomPresets(): List<EqualizerPreset> {
+        val jsonString = this[Keys.CUSTOM_PRESETS] ?: return emptyList()
+        return try {
+            json.decodeFromString<List<EqualizerPreset>>(jsonString)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun Preferences.decodePinnedPresets(): List<String> {
+        val jsonString = this[Keys.PINNED_PRESETS] ?: return EqualizerPreset.ALL_PRESETS.map { it.name }
+        return try {
+            json.decodeFromString<List<String>>(jsonString)
+        } catch (_: Exception) {
+            EqualizerPreset.ALL_PRESETS.map { it.name }
+        }
+    }
+
     suspend fun saveCustomPreset(preset: EqualizerPreset) {
-        val current = customPresetsFlow.first().toMutableList()
-        current.removeAll { it.name == preset.name }
-        current.add(preset)
         dataStore.edit { preferences ->
+            val current = preferences.decodeCustomPresets().toMutableList()
+            current.removeAll { it.name == preset.name }
+            current.add(preset)
             preferences[Keys.CUSTOM_PRESETS] = json.encodeToString(current)
         }
     }
 
     suspend fun deleteCustomPreset(presetName: String) {
-        val current = customPresetsFlow.first().toMutableList()
-        current.removeAll { it.name == presetName }
         dataStore.edit { preferences ->
+            val current = preferences.decodeCustomPresets().toMutableList()
+            current.removeAll { it.name == presetName }
             preferences[Keys.CUSTOM_PRESETS] = json.encodeToString(current)
-        }
 
-        val pinned = pinnedPresetsFlow.first().toMutableList()
-        if (pinned.remove(presetName)) {
-            setPinnedPresets(pinned)
+            val pinned = preferences.decodePinnedPresets().toMutableList()
+            if (pinned.remove(presetName)) {
+                preferences[Keys.PINNED_PRESETS] = json.encodeToString(pinned)
+            }
         }
     }
 
     suspend fun renameCustomPreset(oldName: String, newName: String) {
-        val current = customPresetsFlow.first().toMutableList()
-        val index = current.indexOfFirst { it.name == oldName }
-        if (index == -1) return
-
-        current[index] = current[index].copy(name = newName, displayName = newName)
         dataStore.edit { preferences ->
+            val current = preferences.decodeCustomPresets().toMutableList()
+            val index = current.indexOfFirst { it.name == oldName }
+            if (index == -1) return@edit
+
+            current[index] = current[index].copy(name = newName, displayName = newName)
             preferences[Keys.CUSTOM_PRESETS] = json.encodeToString(current)
-        }
 
-        val pinned = pinnedPresetsFlow.first().toMutableList()
-        val pinnedIndex = pinned.indexOf(oldName)
-        if (pinnedIndex != -1) {
-            pinned[pinnedIndex] = newName
-            setPinnedPresets(pinned)
-        }
+            val pinned = preferences.decodePinnedPresets().toMutableList()
+            val pinnedIndex = pinned.indexOf(oldName)
+            if (pinnedIndex != -1) {
+                pinned[pinnedIndex] = newName
+                preferences[Keys.PINNED_PRESETS] = json.encodeToString(pinned)
+            }
 
-        val activePreset = dataStore.data.first()[Keys.EQUALIZER_PRESET]
-        if (activePreset == oldName) {
-            dataStore.edit { preferences ->
+            if (preferences[Keys.EQUALIZER_PRESET] == oldName) {
                 preferences[Keys.EQUALIZER_PRESET] = newName
             }
         }
     }
 
     suspend fun updateCustomPresetBands(presetName: String, bandLevels: List<Int>) {
-        val current = customPresetsFlow.first().toMutableList()
-        val index = current.indexOfFirst { it.name == presetName }
-        if (index == -1) return
-
-        current[index] = current[index].copy(bandLevels = bandLevels)
         dataStore.edit { preferences ->
+            val current = preferences.decodeCustomPresets().toMutableList()
+            val index = current.indexOfFirst { it.name == presetName }
+            if (index == -1) return@edit
+
+            current[index] = current[index].copy(bandLevels = bandLevels)
             preferences[Keys.CUSTOM_PRESETS] = json.encodeToString(current)
         }
     }

@@ -544,12 +544,14 @@ class LibraryStateHolder @Inject constructor(
         _allSongs.update { currentList ->
             currentList.map { if (it.id == updatedSong.id) updatedSong else it }.toImmutableList()
         }
+        _allSongsById.update { current -> current + (updatedSong.id to updatedSong) }
     }
 
     fun removeSong(songId: String) {
         _allSongs.update { currentList ->
             currentList.filter { it.id != songId }.toImmutableList()
         }
+        _allSongsById.update { current -> current - songId }
     }
 
     fun setStorageFilter(filter: com.theveloper.pixelplay.data.model.StorageFilter) {

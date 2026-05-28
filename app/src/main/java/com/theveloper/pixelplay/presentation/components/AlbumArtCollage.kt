@@ -99,7 +99,7 @@ fun AlbumArtCollage(
                                     .offset(cfg.offsetX, cfg.offsetY)
                                     .graphicsLayer { rotationZ = cfg.rot }
                                     .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
+                                        interactionSource = remember(idx) { MutableInteractionSource() },
                                         indication = null
                                     ) { onSongClick(song) }
                                     .background(shape = cfg.shape, color = MaterialTheme.colorScheme.surfaceContainerHigh)
@@ -121,7 +121,7 @@ fun AlbumArtCollage(
                                     .offset(cfg.offsetX, cfg.offsetY)
                                     .graphicsLayer { rotationZ = cfg.rot }
                                     .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
+                                        interactionSource = remember(j) { MutableInteractionSource() },
                                         indication = null
                                     ) { onSongClick(song) }
                                     .clip(cfg.shape)

@@ -1847,10 +1847,11 @@ fun LibraryScreen(
 
     if (showSongInfoBottomSheet && selectedSongForInfo != null) {
         val currentSong = selectedSongForInfo
-        val isFavorite = remember(currentSong?.id, favoriteIds) { derivedStateOf { currentSong?.let {
-            favoriteIds.contains(
-                it.id)
-        } } }.value ?: false
+        // Plain remember keyed on the inputs: wrapping derivedStateOf in remember and reading .value
+        // immediately defeats derivedStateOf and just adds overhead.
+        val isFavorite = remember(currentSong?.id, favoriteIds) {
+            currentSong?.let { favoriteIds.contains(it.id) } ?: false
+        }
 
         if (currentSong != null) {
             SongInfoBottomSheet(

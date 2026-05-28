@@ -430,7 +430,7 @@ class MainActivity : ComponentActivity() {
                 val takeFlags = intent.flags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 if (takeFlags != 0) {
                     try {
-                        contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        contentResolver.takePersistableUriPermission(uri, takeFlags)
                     } catch (securityException: SecurityException) {
                         android.util.Log.w("MainActivity", "Unable to persist URI permission for $uri", securityException)
                     } catch (illegalArgumentException: IllegalArgumentException) {

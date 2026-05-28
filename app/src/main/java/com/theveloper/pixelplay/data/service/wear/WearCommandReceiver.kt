@@ -116,6 +116,15 @@ class WearCommandReceiver : WearableListenerService() {
             WearPlaybackCommand.PLAY_FROM_CONTEXT -> {
                 handlePlayFromContext(command)
             }
+            WearPlaybackCommand.PLAY_ITEM -> {
+                handlePlayItem(command)
+            }
+            WearPlaybackCommand.PLAY_NEXT_FROM_CONTEXT -> {
+                handleEnqueueItem(command, playNext = true)
+            }
+            WearPlaybackCommand.ADD_TO_QUEUE_FROM_CONTEXT -> {
+                handleEnqueueItem(command, playNext = false)
+            }
             else -> {
                 getOrBuildMediaController { controller ->
                     when (command.action) {
@@ -220,6 +229,80 @@ class WearCommandReceiver : WearableListenerService() {
                 }
             } catch (e: Exception) {
                 Timber.tag(TAG).e(e, "Failed to handle PLAY_FROM_CONTEXT")
+            }
+        }
+    }
+
+    /**
+     * Handle PLAY_ITEM: resolve a single song by ID and start playing it immediately.
+     */
+    private fun handlePlayItem(command: WearPlaybackCommand) {
+        val songId = command.songId
+        if (songId == null) {
+            Timber.tag(TAG).w("PLAY_ITEM missing songId")
+            return
+        }
+        scope.launch {
+            try {
+                val song = musicRepository.getSong(songId).first()
+                if (song == null) {
+                    Timber.tag(TAG).w("PLAY_ITEM: song not found for id=%s", songId)
+                    return@launch
+                }
+                val mediaItem = dualPlayerEngine.resolveMediaItem(MediaItemBuilder.build(song))
+                getOrBuildMediaController { controller ->
+                    controller.setMediaItems(listOf(mediaItem), 0, 0L)
+                    controller.prepare()
+                    controller.play()
+                    Timber.tag(TAG).d("PLAY_ITEM: playing %s", song.title)
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to handle PLAY_ITEM")
+            }
+        }
+    }
+
+    /**
+     * Handle PLAY_NEXT_FROM_CONTEXT / ADD_TO_QUEUE_FROM_CONTEXT: resolve a single song and either
+     * insert it right after the current item or append it to the end of the active queue. If nothing
+     * is queued yet, fall back to starting playback of the song.
+     */
+    private fun handleEnqueueItem(command: WearPlaybackCommand, playNext: Boolean) {
+        val songId = command.songId
+        if (songId == null) {
+            Timber.tag(TAG).w("%s missing songId", command.action)
+            return
+        }
+        scope.launch {
+            try {
+                val song = musicRepository.getSong(songId).first()
+                if (song == null) {
+                    Timber.tag(TAG).w("%s: song not found for id=%s", command.action, songId)
+                    return@launch
+                }
+                val mediaItem = MediaItemBuilder.build(song)
+                // Resolve here (in the coroutine body); getOrBuildMediaController's callback is not a
+                // suspend context. Only the "start now" branch needs the resolved (cloud-ready) item;
+                // enqueued items are resolved later when they become current (matches PLAY_FROM_CONTEXT).
+                val resolvedMediaItem = dualPlayerEngine.resolveMediaItem(mediaItem)
+                getOrBuildMediaController { controller ->
+                    when {
+                        controller.mediaItemCount == 0 -> {
+                            controller.setMediaItems(listOf(resolvedMediaItem), 0, 0L)
+                            controller.prepare()
+                            controller.play()
+                        }
+                        playNext -> {
+                            val insertIndex = (controller.currentMediaItemIndex + 1)
+                                .coerceIn(0, controller.mediaItemCount)
+                            controller.addMediaItem(insertIndex, mediaItem)
+                        }
+                        else -> controller.addMediaItem(mediaItem)
+                    }
+                    Timber.tag(TAG).d("%s: enqueued %s (playNext=%b)", command.action, song.title, playNext)
+                }
+            } catch (e: Exception) {
+                Timber.tag(TAG).e(e, "Failed to handle %s", command.action)
             }
         }
     }

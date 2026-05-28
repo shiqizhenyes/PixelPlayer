@@ -23,6 +23,7 @@ import com.theveloper.pixelplay.data.service.http.CastSessionSecurity
 import com.theveloper.pixelplay.data.service.http.MediaFileHttpServerService
 import com.theveloper.pixelplay.data.service.player.CastPlayer
 import com.theveloper.pixelplay.data.service.player.DualPlayerEngine
+import com.theveloper.pixelplay.di.AppScope
 
 import com.theveloper.pixelplay.utils.MediaItemBuilder
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -51,7 +52,8 @@ class CastTransferStateHolder @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val castStateHolder: CastStateHolder,
     private val playbackStateHolder: PlaybackStateHolder,
-    private val dualPlayerEngine: DualPlayerEngine // For local player control during transfer
+    private val dualPlayerEngine: DualPlayerEngine, // For local player control during transfer
+    @param:AppScope private val appScope: CoroutineScope
 ) {
     private val CAST_LOG_TAG = "PlayerCastTransfer"
     private val remoteBufferingSoftRecoveryMs = 6_000L
@@ -209,7 +211,10 @@ class CastTransferStateHolder @Inject constructor(
             }
             override fun onSessionEnded(session: CastSession, error: Int) {
                 sessionSuspendedRecoveryJob?.cancel()
-                scope?.launch { stopServerAndTransferBack() }
+                // Use the app-level scope rather than the nullable `scope`: onSessionEnded can race
+                // with onCleared() (which nulls `scope`), and dropping this cleanup would leave the
+                // Ktor HTTP server running and the local player never restored.
+                appScope.launch { stopServerAndTransferBack() }
             }
             override fun onSessionSuspended(session: CastSession, reason: Int) {
                 Timber.tag(CAST_LOG_TAG).w("Cast session suspended (reason=%d). Waiting for recovery.", reason)
@@ -247,10 +252,14 @@ class CastTransferStateHolder @Inject constructor(
         if (currentSession != null) {
             val callback = remoteMediaClientCallback
             val progressListener = remoteProgressListener
+            // Unregister first: the Cast SDK does not de-dup, and the same listener instances may be
+            // re-registered on session resume (see transferPlayback), which would double every callback.
             if (callback != null) {
+                currentSession.remoteMediaClient?.unregisterCallback(callback)
                 currentSession.remoteMediaClient?.registerCallback(callback)
             }
             if (progressListener != null) {
+                currentSession.remoteMediaClient?.removeProgressListener(progressListener)
                 currentSession.remoteMediaClient?.addProgressListener(progressListener, 1000)
             }
             startRemoteProgressObserver()
@@ -671,13 +680,17 @@ class CastTransferStateHolder @Inject constructor(
 
             val callback = remoteMediaClientCallback
             val progressListener = remoteProgressListener
+            // Unregister before registering: onSessionResumed re-enters here with the same listener
+            // instances; without this the SDK fires every status/progress callback twice.
             if (callback != null) {
+                session.remoteMediaClient?.unregisterCallback(callback)
                 session.remoteMediaClient?.registerCallback(callback)
             }
             if (progressListener != null) {
+                session.remoteMediaClient?.removeProgressListener(progressListener)
                 session.remoteMediaClient?.addProgressListener(progressListener, 1000)
             }
-            
+
             startRemoteProgressObserver()
         }
     }
@@ -973,8 +986,18 @@ class CastTransferStateHolder @Inject constructor(
 
     private fun parseIpv4Address(rawAddress: String?): Inet4Address? {
         val normalized = rawAddress?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        val parsed = runCatching { InetAddress.getByName(normalized) }.getOrNull() ?: return null
-        return parsed as? Inet4Address
+        // Parse a numeric dotted-quad directly via getByAddress(). InetAddress.getByName() can block
+        // on a DNS lookup for non-literal hosts and is a StrictMode violation when (as here) this runs
+        // on the main dispatcher; getByAddress() with raw bytes never resolves DNS.
+        val parts = normalized.split('.')
+        if (parts.size != 4) return null
+        val bytes = ByteArray(4)
+        for (i in 0 until 4) {
+            val octet = parts[i].toIntOrNull() ?: return null
+            if (octet !in 0..255) return null
+            bytes[i] = octet.toByte()
+        }
+        return runCatching { InetAddress.getByAddress(bytes) as? Inet4Address }.getOrNull()
     }
 
     private fun isSameSubnet(localAddress: Inet4Address, remoteAddress: Inet4Address, prefixLength: Int): Boolean {

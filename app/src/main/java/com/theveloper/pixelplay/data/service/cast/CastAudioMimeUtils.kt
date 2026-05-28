@@ -71,10 +71,8 @@ internal object CastAudioMimeUtils {
             "audio/l16",
             "audio/l24" -> normalizedBase
 
-            "audio/aiff",
-            "audio/x-aiff",
-            "audio/aif" -> "audio/mpeg"
-
+            // AIFF is uncompressed LPCM, NOT MPEG — advertising audio/mpeg makes the Cast receiver
+            // try to MP3-decode AIFF and fail. Return null so it routes through the transcode path.
             else -> null
         }
     }

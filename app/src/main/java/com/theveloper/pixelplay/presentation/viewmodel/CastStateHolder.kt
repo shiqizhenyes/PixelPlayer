@@ -241,16 +241,20 @@ class CastStateHolder @Inject constructor(
                 mediaRouterCallback,
                 MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY or MediaRouter.CALLBACK_FLAG_PERFORM_ACTIVE_SCAN
             )
-            updateRoutes()
-            syncSelectedRouteFromRouter(mediaRouter)
-
-            kotlinx.coroutines.delay(1800)
-
-            mediaRouter.removeCallback(mediaRouterCallback)
-            mediaRouter.addCallback(mediaRouteSelector, mediaRouterCallback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
-            updateRoutes()
-            syncSelectedRouteFromRouter(mediaRouter)
-            _isRefreshingRoutes.value = false
+            try {
+                updateRoutes()
+                syncSelectedRouteFromRouter(mediaRouter)
+                kotlinx.coroutines.delay(1800)
+            } finally {
+                // Always downgrade active scan -> passive discovery, even if this job is cancelled
+                // mid-delay by a rapid re-refresh; otherwise the radios stay in active-scan mode and
+                // drain the battery indefinitely.
+                mediaRouter.removeCallback(mediaRouterCallback)
+                mediaRouter.addCallback(mediaRouteSelector, mediaRouterCallback, MediaRouter.CALLBACK_FLAG_REQUEST_DISCOVERY)
+                updateRoutes()
+                syncSelectedRouteFromRouter(mediaRouter)
+                _isRefreshingRoutes.value = false
+            }
         }
     }
 

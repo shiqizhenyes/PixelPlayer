@@ -15,16 +15,17 @@ import timber.log.Timber
 internal fun createTempAudioFileFromUri(context: Context, uri: Uri): File? {
     return try {
         val fileExtension = resolveAudioFileExtension(context, uri)
-        val inputStream = context.contentResolver.openInputStream(uri)
-        val tempFile = File.createTempFile("pixelplay_audio_", fileExtension, context.cacheDir)
-        tempFile.deleteOnExit()
-        val outputStream = FileOutputStream(tempFile)
-        inputStream?.use { input ->
-            outputStream.use { output ->
+        // Open the input first and nest everything inside its use{} so the output stream is only
+        // created (and always closed) once we have a valid input — avoids an FD leak when
+        // openInputStream returns null or createTempFile throws.
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val tempFile = File.createTempFile("pixelplay_audio_", fileExtension, context.cacheDir)
+            tempFile.deleteOnExit()
+            FileOutputStream(tempFile).use { output ->
                 input.copyTo(output)
             }
+            tempFile
         }
-        tempFile
     } catch (error: Exception) {
         Timber.tag("AudioMetadataUtils").e(error, "Error creating temp file from URI: $uri")
         null

@@ -1077,12 +1077,17 @@ class WearTransferRepository @Inject constructor(
         return String(data, Charsets.UTF_8)
     }
 
-    private fun InputStream.readBytesSafely(): ByteArray {
+    private fun InputStream.readBytesSafely(maxBytes: Int = 8 * 1024 * 1024): ByteArray {
         val buffer = ByteArray(8192)
         val output = java.io.ByteArrayOutputStream()
+        var total = 0
         while (true) {
             val read = read(buffer)
             if (read <= 0) break
+            total += read
+            // Cap the payload so a malicious/buggy phone cannot OOM the (RAM-constrained) watch.
+            // The caller wraps this in runCatching, so the throw fails the transfer gracefully.
+            require(total <= maxBytes) { "Payload exceeds max $maxBytes bytes" }
             output.write(buffer, 0, read)
         }
         return output.toByteArray()

@@ -3,7 +3,6 @@ package com.theveloper.pixelplay.ui.glancewidget
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize

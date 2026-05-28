@@ -142,12 +142,14 @@ class DailyMixStateHolder @Inject constructor(
     fun checkAndUpdateIfNeeded(favoriteSongIdsFlow: kotlinx.coroutines.flow.Flow<Set<String>>) {
         scope?.launch {
             val lastUpdate = userPreferencesRepository.lastDailyMixUpdateFlow.first()
-            val today = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
-            val lastUpdateDay = Calendar.getInstance().apply {
-                timeInMillis = lastUpdate
-            }.get(Calendar.DAY_OF_YEAR)
+            val todayCal = Calendar.getInstance()
+            val lastCal = Calendar.getInstance().apply { timeInMillis = lastUpdate }
+            // Compare full date (year + day-of-year); comparing DAY_OF_YEAR alone treats e.g. day 150
+            // of two different years as "same day" and suppresses the refresh.
+            val isDifferentDay = todayCal.get(Calendar.YEAR) != lastCal.get(Calendar.YEAR) ||
+                todayCal.get(Calendar.DAY_OF_YEAR) != lastCal.get(Calendar.DAY_OF_YEAR)
 
-            if (today != lastUpdateDay) {
+            if (isDifferentDay) {
                 updateDailyMix(favoriteSongIdsFlow)
                 userPreferencesRepository.saveLastDailyMixUpdateTimestamp(System.currentTimeMillis())
             }

@@ -138,7 +138,8 @@ class WearPlaybackController @Inject constructor(
     fun setSleepTimerDuration(durationMinutes: Int) = sendCommand(
         WearPlaybackCommand(
             action = WearPlaybackCommand.SET_SLEEP_TIMER_DURATION,
-            durationMinutes = durationMinutes,
+            // Clamp to a sane range (1 min .. 8 h) so a corrupt/hostile value can't reach the phone.
+            durationMinutes = durationMinutes.coerceIn(1, 8 * 60),
         )
     )
 

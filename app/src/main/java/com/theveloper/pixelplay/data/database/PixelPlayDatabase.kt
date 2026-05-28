@@ -36,7 +36,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AiCacheEntity::class,
         AiUsageEntity::class
     ],
-    version = 41,
+    version = 42,
     exportSchema = true
 )
 abstract class PixelPlayDatabase : RoomDatabase() {
@@ -621,6 +621,51 @@ abstract class PixelPlayDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS index_songs_parent_directory_path_source_type_id " +
                         "ON songs(parent_directory_path, source_type, id)"
+                )
+            }
+        }
+
+        /**
+         * Give album_art_themes a COMPOSITE primary key (albumArtUriString, paletteStyle) so cached
+         * schemes for different palette styles of the same artwork no longer overwrite each other.
+         * The table is a regenerable cache, so we drop and recreate (matches the 14→15/15→16 pattern).
+         */
+        val MIGRATION_41_42 = object : Migration(41, 42) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS album_art_themes")
+
+                val colorColumns = listOf(
+                    "primary", "onPrimary", "primaryContainer", "onPrimaryContainer",
+                    "secondary", "onSecondary", "secondaryContainer", "onSecondaryContainer",
+                    "tertiary", "onTertiary", "tertiaryContainer", "onTertiaryContainer",
+                    "background", "onBackground", "surface", "onSurface",
+                    "surfaceVariant", "onSurfaceVariant", "error", "onError",
+                    "outline", "errorContainer", "onErrorContainer",
+                    "inversePrimary", "inverseSurface", "inverseOnSurface",
+                    "surfaceTint", "outlineVariant", "scrim",
+                    "surfaceBright", "surfaceDim",
+                    "surfaceContainer", "surfaceContainerHigh", "surfaceContainerHighest", "surfaceContainerLow", "surfaceContainerLowest",
+                    "primaryFixed", "primaryFixedDim", "onPrimaryFixed", "onPrimaryFixedVariant",
+                    "secondaryFixed", "secondaryFixedDim", "onSecondaryFixed", "onSecondaryFixedVariant",
+                    "tertiaryFixed", "tertiaryFixedDim", "onTertiaryFixed", "onTertiaryFixedVariant"
+                )
+
+                val themePrefixes = listOf("light_", "dark_")
+                val columnDefinitions = StringBuilder()
+                columnDefinitions.append("albumArtUriString TEXT NOT NULL, ")
+                columnDefinitions.append("paletteStyle TEXT NOT NULL, ")
+                themePrefixes.forEach { prefix ->
+                    colorColumns.forEach { column ->
+                        columnDefinitions.append("${prefix}${column} TEXT NOT NULL, ")
+                    }
+                }
+                val columnsSql = columnDefinitions.toString().trimEnd(',', ' ')
+
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS album_art_themes ($columnsSql, PRIMARY KEY(albumArtUriString, paletteStyle))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_album_art_themes_albumArtUriString_paletteStyle ON album_art_themes(albumArtUriString, paletteStyle)"
                 )
             }
         }

@@ -1948,12 +1948,17 @@ class PlayerViewModel @Inject constructor(
         // Initialize connectivity monitoring (WiFi/Bluetooth)
         connectivityStateHolder.initialize()
 
-        // Initialize sleep timer state holder
+        // Initialize sleep timer state holder.
+        // Create the current-song-id flow once and share it; previously the provider built a new
+        // Eagerly-started stateIn() coroutine on every end-of-track toggle, leaking one per cycle.
+        val currentSongIdFlow = stablePlayerState
+            .map { it.currentSong?.id }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
         sleepTimerStateHolder.initialize(
             scope = viewModelScope,
             toastEmitter = { msg -> _toastEvents.emit(msg) },
             mediaControllerProvider = { mediaController },
-            currentSongIdProvider = { stablePlayerState.map { it.currentSong?.id }.stateIn(viewModelScope, SharingStarted.Eagerly, null) },
+            currentSongIdProvider = { currentSongIdFlow },
             songTitleResolver = { songId -> libraryStateHolder.allSongsById.value[songId]?.title ?: "Unknown" }
         )
 
@@ -2129,8 +2134,6 @@ class PlayerViewModel @Inject constructor(
             getUiState = { _playerUiState.value },
             onHideDismissUndoBar = { hideDismissUndoBar() }
         )
-
-        Trace.endSection() // End PlayerViewModel.init
     }
 
     fun onMainActivityStart() {
@@ -2600,7 +2603,7 @@ class PlayerViewModel @Inject constructor(
                 awaitPlayerCollapse()
             }
 
-            _artistNavigationRequests.emit(artistId)
+            _artistNavigationRequests.emit(resolvedId)
         }
     }
 
@@ -3399,7 +3402,7 @@ class PlayerViewModel @Inject constructor(
         } else {
             setPreparingSong(null)
         }
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(Dispatchers.Default) {
             val albumArtUri = song.albumArtUriString
             if (albumArtUri.isNullOrBlank()) {
                 themeStateHolder.extractAndGenerateColorScheme(
@@ -4005,9 +4008,7 @@ class PlayerViewModel @Inject constructor(
                 _toastEvents.emit(
                     context.getString(R.string.player_share_zip_failed_format, error.localizedMessage ?: ""),
                 )
-                println(
-                    "Failed to share: ${error.localizedMessage}"
-                )
+                Timber.e(error, "Failed to share zip")
             }
         }
     }

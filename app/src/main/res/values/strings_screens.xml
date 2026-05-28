@@ -2,6 +2,7 @@
 <resources>
     <!-- Navigation / misc -->
     <string name="nav_error_genre_id_missing">Error: Genre ID missing</string>
+    <string name="nav_error_item_id_missing">Error: required ID missing</string>
     <string name="easter_egg_thank_you">Thank you for using PixelPlayer!</string>
 
     <!-- Word delimiter config -->

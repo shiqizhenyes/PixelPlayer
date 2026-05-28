@@ -796,6 +796,13 @@ class DualPlayerEngine @Inject constructor(
             Timber.tag("DualPlayerEngine").w("Hi-Fi mode requested but device does not support PCM_FLOAT")
             return
         }
+        if (transitionRunning) {
+            // Rebuilding the players underneath an active crossfade tears down the player the fade
+            // loop still references. Skip; the change applies on the next toggle (matches the
+            // audio-offload fallback guard in disableAudioOffloadForSession).
+            Timber.tag("DualPlayerEngine").w("Skipping Hi-Fi mode change during active transition.")
+            return
+        }
         hiFiModeEnabled = enabled
         rebuildPlayersPreservingMasterState("Hi-Fi mode set to $enabled")
     }

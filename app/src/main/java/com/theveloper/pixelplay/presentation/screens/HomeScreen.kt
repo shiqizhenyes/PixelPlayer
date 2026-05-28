@@ -433,16 +433,22 @@ fun HomeScreen(
                                 navController.navigateSafely(Screen.DailyMixScreen.route)
                             },
                             onNavigateToAlbum = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.AlbumDetail.createRoute(song.albumId),
-                                    patternToPop = Screen.AlbumDetail.route
-                                )
+                                // Skip the -1L sentinel (external/streaming songs) to avoid navigating
+                                // to a non-existent album detail screen.
+                                if (song.albumId != -1L) {
+                                    navController.navigateSafelyReplacing(
+                                        route = Screen.AlbumDetail.createRoute(song.albumId),
+                                        patternToPop = Screen.AlbumDetail.route
+                                    )
+                                }
                             },
                             onNavigateToArtist = { song ->
-                                navController.navigateSafelyReplacing(
-                                    route = Screen.ArtistDetail.createRoute(song.artistId),
-                                    patternToPop = Screen.ArtistDetail.route
-                                )
+                                if (song.artistId != -1L) {
+                                    navController.navigateSafelyReplacing(
+                                        route = Screen.ArtistDetail.createRoute(song.artistId),
+                                        patternToPop = Screen.ArtistDetail.route
+                                    )
+                                }
                             },
                             onNavigateToGenre = { song ->
                                 song.genre?.let {

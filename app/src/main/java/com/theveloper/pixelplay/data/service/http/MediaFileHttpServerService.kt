@@ -105,9 +105,12 @@ class MediaFileHttpServerService : Service() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
     private val castHttpLogTag = "CastHttpServer"
-    private val signatureMimeCache = mutableMapOf<String, String?>()
+    // Synchronized maps: these are read/written from concurrent Ktor request coroutines. They store
+    // null as a "probed, no result" sentinel, so ConcurrentHashMap (which rejects null values) is
+    // unusable; a synchronized wrapper prevents the HashMap corruption that concurrent access causes.
+    private val signatureMimeCache = java.util.Collections.synchronizedMap(mutableMapOf<String, String?>())
     // Cache for the actual codec info (codec MIME, sample rate, channels) to avoid re-probing.
-    private val codecInfoCache = mutableMapOf<String, AudioCodecInfo?>()
+    private val codecInfoCache = java.util.Collections.synchronizedMap(mutableMapOf<String, AudioCodecInfo?>())
     private val httpDateFormatter: DateTimeFormatter =
         DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC)
 
@@ -563,7 +566,8 @@ class MediaFileHttpServerService : Service() {
                                         e,
                                         "GET /song exception songId=${song.id} uri=${song.contentUriString}"
                                     )
-                                    call.respond(HttpStatusCode.InternalServerError, "Error serving file: ${e.message}")
+                                    // Don't echo e.message: it can contain file paths / content URIs.
+                                    call.respond(HttpStatusCode.InternalServerError, "Error serving file")
                                 }
                             }
                             head("/song/{songId}") {
@@ -1936,36 +1940,42 @@ class MediaFileHttpServerService : Service() {
             transcodeCache.remove(songId)
         }
 
-        // No entry yet — we are the first request. Create the entry and start transcoding.
+        // No entry yet — we are the first request. Create the entry atomically: computeIfAbsent
+        // guarantees that if two requests for the same song race here, only one creates the entry
+        // and launches the background transcode; the loser reuses the winner's entry/temp file.
         val tempFile = File(cacheDir, "cast_transcode_${songId}.aac")
-        // Remove stale failed temp file if present.
-        runCatching { if (tempFile.exists()) tempFile.delete() }
+        var startedTranscode = false
+        val entry = transcodeCache.computeIfAbsent(songId) {
+            // Remove stale failed temp file if present (only the creating thread does this).
+            runCatching { if (tempFile.exists()) tempFile.delete() }
+            startedTranscode = true
+            TranscodeEntry(tempFile = tempFile)
+        }
 
-        val entry = TranscodeEntry(tempFile = tempFile)
-        transcodeCache[songId] = entry
+        if (startedTranscode) {
+            Timber.tag(castHttpLogTag).d("transcode-cache MISS songId=%s, starting progressive stream", songId)
+            Timber.tag("PX_CAST_HTTP").i("transcode_cache_start songId=$songId codec=${codecInfo.codecMime}")
 
-        Timber.tag(castHttpLogTag).d("transcode-cache MISS songId=%s, starting progressive stream", songId)
-        Timber.tag("PX_CAST_HTTP").i("transcode_cache_start songId=$songId codec=${codecInfo.codecMime}")
-
-        // Transcode to the temp file in the background while we stream progressively to Cast.
-        // This decouples the encoder from the response stream: a Cast connection reset no longer
-        // marks the entry as failed and no longer deletes the temp file mid-transcode.
-        serviceScope.launch {
-            runCatching {
-                FileOutputStream(tempFile).use { fos ->
-                    transcodeToAacAdts(codecInfo, song, uri, fos)
+            // Transcode to the temp file in the background while we stream progressively to Cast.
+            // This decouples the encoder from the response stream: a Cast connection reset no longer
+            // marks the entry as failed and no longer deletes the temp file mid-transcode.
+            serviceScope.launch {
+                runCatching {
+                    FileOutputStream(entry.tempFile).use { fos ->
+                        transcodeToAacAdts(codecInfo, song, uri, fos)
+                    }
+                    entry.done = true
+                    Timber.tag("PX_CAST_HTTP").i("transcode_cache_done songId=$songId size=${entry.tempFile.length()}")
+                }.onFailure { t ->
+                    entry.failed = true
+                    runCatching { entry.tempFile.delete() }
+                    if (!t.isClientAbortDuringResponse()) {
+                        Timber.tag(castHttpLogTag).e(t, "transcode-cache bg transcode failed songId=%s", songId)
+                        Timber.tag("PX_CAST_HTTP").e(t, "transcode_cache_error songId=$songId")
+                    }
+                }.also {
+                    entry.latch.countDown()
                 }
-                entry.done = true
-                Timber.tag("PX_CAST_HTTP").i("transcode_cache_done songId=$songId size=${tempFile.length()}")
-            }.onFailure { t ->
-                entry.failed = true
-                runCatching { tempFile.delete() }
-                if (!t.isClientAbortDuringResponse()) {
-                    Timber.tag(castHttpLogTag).e(t, "transcode-cache bg transcode failed songId=%s", songId)
-                    Timber.tag("PX_CAST_HTTP").e(t, "transcode_cache_error songId=$songId")
-                }
-            }.also {
-                entry.latch.countDown()
             }
         }
 
@@ -2620,7 +2630,7 @@ class MediaFileHttpServerService : Service() {
                                 }
                             }
                         } else if (isEos && !encoderEosQueued) {
-                            queueEncoderEndOfStream(encoder, encoderInfo, decoderOutput.timeUs, outputStream, codecInfo)
+                            queueEncoderEndOfStream(encoder, encoderInfo, decoderOutput.timeUs, outputStream, codecInfo, encChannels)
                             encoderEosQueued = true
                         }
 
@@ -2636,7 +2646,7 @@ class MediaFileHttpServerService : Service() {
                 }
 
                 if (srcDone && decDone && !encoderEosQueued) {
-                    queueEncoderEndOfStream(encoder, encoderInfo, 0L, outputStream, codecInfo)
+                    queueEncoderEndOfStream(encoder, encoderInfo, 0L, outputStream, codecInfo, encChannels)
                     encoderEosQueued = true
                 }
 
@@ -2645,7 +2655,7 @@ class MediaFileHttpServerService : Service() {
                             encoder,
                             encoderInfo,
                             codecInfo.sampleRate,
-                            codecInfo.channelCount,
+                            encChannels,
                             outputStream
                         )
                     ) {
@@ -2763,7 +2773,8 @@ class MediaFileHttpServerService : Service() {
         encoderInfo: MediaCodec.BufferInfo,
         ptsUs: Long,
         outputStream: OutputStream,
-        codecInfo: AudioCodecInfo
+        codecInfo: AudioCodecInfo,
+        encoderChannels: Int
     ) {
         repeat(4) {
             val encInIdx = encoder.dequeueInputBuffer(20_000L)
@@ -2781,7 +2792,7 @@ class MediaFileHttpServerService : Service() {
                 encoder,
                 encoderInfo,
                 codecInfo.sampleRate,
-                codecInfo.channelCount,
+                encoderChannels,
                 outputStream,
                 firstTimeoutUs = 20_000L
             )

@@ -16,6 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
 import com.theveloper.pixelplay.presentation.components.external.ExternalPlayerOverlay
 import com.theveloper.pixelplay.ui.theme.PixelPlayTheme
+import timber.log.Timber
 import android.content.Intent.EXTRA_STREAM
 import androidx.media3.common.util.UnstableApi
 import com.theveloper.pixelplay.data.preferences.AppThemeMode
@@ -72,7 +73,10 @@ class ExternalPlayerActivity : ComponentActivity() {
         if (intent == null) return
 
         when {
-            intent.action == Intent.ACTION_VIEW && intent.data != null -> {
+            // Reject an explicitly non-audio MIME type (intent spoofing), but still allow a null/absent
+            // type, which is common when file managers open a local audio file via a content:// URI.
+            intent.action == Intent.ACTION_VIEW && intent.data != null &&
+                (intent.type == null || intent.type?.startsWith("audio/") == true) -> {
                 intent.data?.let { uri ->
                     persistUriPermissionIfNeeded(intent, uri)
                     playerViewModel.playExternalUri(uri)
@@ -124,6 +128,7 @@ class ExternalPlayerActivity : ComponentActivity() {
                 val takeFlags = intent.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 if (takeFlags != 0) {
                     runCatching { contentResolver.takePersistableUriPermission(uri, takeFlags) }
+                        .onFailure { Timber.w(it, "Unable to persist URI permission for %s", uri) }
                 }
             }
         }

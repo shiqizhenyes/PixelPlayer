@@ -20,9 +20,9 @@ object AlbumArtBitmapCache {
     fun getBitmap(key: String): Bitmap? = lruCache.get(key)
 
     fun putBitmap(key: String, bitmap: Bitmap) {
-        if (getBitmap(key) == null) {
-            lruCache.put(key, bitmap)
-        }
+        // LruCache.put is itself synchronized and last-write-wins, so the previous get-then-put
+        // guard only added a non-atomic race; an unconditional put is both simpler and correct.
+        lruCache.put(key, bitmap)
     }
 
     fun getKey(byteArray: ByteArray): String {

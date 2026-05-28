@@ -75,7 +75,12 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { ignoreUnknownKeys = true }
     private val albumPaletteSeedCache = ConcurrentHashMap<Long, Int>()
-    private val albumArtworkTransferCache = ConcurrentHashMap<Long, ByteArray>()
+    // Bounded LRU (~20 MiB) instead of an unbounded map: this @Singleton would otherwise retain
+    // up to TRANSFER_ARTWORK_MAX_BYTES per distinct album forever, risking OOM on low-end phones.
+    private val albumArtworkTransferCache =
+        object : android.util.LruCache<Long, ByteArray>(20 * 1024 * 1024) {
+            override fun sizeOf(key: Long, value: ByteArray): Int = value.size
+        }
 
     private data class OpenedSongSource(
         val inputStream: InputStream,
@@ -511,7 +516,7 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
 
     private fun resolveTransferArtworkBytes(song: Song): ByteArray? {
         if (song.albumId > 0L) {
-            albumArtworkTransferCache[song.albumId]?.let { return it }
+            albumArtworkTransferCache.get(song.albumId)?.let { return it }
         }
 
         val bitmap = loadSongAlbumArtBitmapForTransfer(song) ?: return null
@@ -523,7 +528,7 @@ class PhoneDirectWatchTransferCoordinator @Inject constructor(
                 null
             } else {
                 if (song.albumId > 0L) {
-                    albumArtworkTransferCache[song.albumId] = bytes
+                    albumArtworkTransferCache.put(song.albumId, bytes)
                 }
                 bytes
             }

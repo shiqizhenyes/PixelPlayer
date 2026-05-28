@@ -19,78 +19,82 @@ object AudioDecoder {
     suspend fun decodeToFloatArray(context: Context, uri: Uri, requiredSamples: Int): Result<FloatArray> = withContext(Dispatchers.IO) {
         runCatching {
             val extractor = MediaExtractor()
-            extractor.setDataSource(context, uri, null)
+            try {
+                extractor.setDataSource(context, uri, null)
 
-            val trackIndex = findAudioTrack(extractor)
-            if (trackIndex == -1) {
+                val trackIndex = findAudioTrack(extractor)
+                if (trackIndex == -1) {
+                    error("No audio track found in the file.")
+                }
+                extractor.selectTrack(trackIndex)
+                val format = extractor.getTrackFormat(trackIndex)
+
+                val mime = format.getString(MediaFormat.KEY_MIME) ?: error("MIME type not found.")
+                val decoder = MediaCodec.createDecoderByType(mime)
+                try {
+                    decoder.configure(format, null, null, 0)
+                    decoder.start()
+
+                    val pcmData = mutableListOf<Float>()
+                    val bufferInfo = MediaCodec.BufferInfo()
+                    var isEndOfStream = false
+
+                    while (!isEndOfStream && pcmData.size < requiredSamples) { // --- MODIFICADO: Condición de parada ---
+                        val inputBufferIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
+                        if (inputBufferIndex >= 0) {
+                            val inputBuffer = decoder.getInputBuffer(inputBufferIndex)
+                            if (inputBuffer == null) {
+                                Timber.tag("AudioDecoder").w("Decoder input buffer was null, ending decode early")
+                                decoder.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                isEndOfStream = true
+                                continue
+                            }
+                            val sampleSize = extractor.readSampleData(inputBuffer, 0)
+                            if (sampleSize < 0) {
+                                decoder.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                isEndOfStream = true
+                            } else {
+                                decoder.queueInputBuffer(inputBufferIndex, 0, sampleSize, extractor.sampleTime, 0)
+                                extractor.advance()
+                            }
+                        }
+
+                        var outputBufferIndex = decoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
+                        while (outputBufferIndex >= 0) {
+                            val outputBuffer = decoder.getOutputBuffer(outputBufferIndex)
+                            if (outputBuffer == null) {
+                                Timber.tag("AudioDecoder").w("Decoder output buffer was null, skipping chunk")
+                                decoder.releaseOutputBuffer(outputBufferIndex, false)
+                                outputBufferIndex = decoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
+                                continue
+                            }
+                            pcmData.addAll(byteBufferToFloatArray(outputBuffer, format).asList())
+                            decoder.releaseOutputBuffer(outputBufferIndex, false)
+
+                            // Si ya tenemos suficientes muestras, salimos del bucle interno
+                            if (pcmData.size >= requiredSamples) break
+
+                            outputBufferIndex = decoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
+                        }
+                    }
+
+                    Timber.tag("AudioDecoder").d("Successfully decoded ${pcmData.size} samples.")
+
+                    // --- MODIFICADO: Rellenamos con silencio si la canción es más corta que lo requerido ---
+                    if (pcmData.size < requiredSamples) {
+                        val padding = FloatArray(requiredSamples - pcmData.size) { 0f }
+                        pcmData.addAll(padding.asList())
+                    }
+
+                    // Devolvemos el array con el tamaño exacto
+                    pcmData.toFloatArray().copyOf(requiredSamples)
+                } finally {
+                    runCatching { decoder.stop() }
+                    decoder.release()
+                }
+            } finally {
                 extractor.release()
-                error("No audio track found in the file.")
             }
-            extractor.selectTrack(trackIndex)
-            val format = extractor.getTrackFormat(trackIndex)
-
-            val mime = format.getString(MediaFormat.KEY_MIME) ?: error("MIME type not found.")
-            val decoder = MediaCodec.createDecoderByType(mime)
-            decoder.configure(format, null, null, 0)
-            decoder.start()
-
-            val pcmData = mutableListOf<Float>()
-            val bufferInfo = MediaCodec.BufferInfo()
-            var isEndOfStream = false
-
-            while (!isEndOfStream && pcmData.size < requiredSamples) { // --- MODIFICADO: Condición de parada ---
-                val inputBufferIndex = decoder.dequeueInputBuffer(TIMEOUT_US)
-                if (inputBufferIndex >= 0) {
-                    val inputBuffer = decoder.getInputBuffer(inputBufferIndex)
-                    if (inputBuffer == null) {
-                        Timber.tag("AudioDecoder").w("Decoder input buffer was null, ending decode early")
-                        decoder.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                        isEndOfStream = true
-                        continue
-                    }
-                    val sampleSize = extractor.readSampleData(inputBuffer, 0)
-                    if (sampleSize < 0) {
-                        decoder.queueInputBuffer(inputBufferIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
-                        isEndOfStream = true
-                    } else {
-                        decoder.queueInputBuffer(inputBufferIndex, 0, sampleSize, extractor.sampleTime, 0)
-                        extractor.advance()
-                    }
-                }
-
-                var outputBufferIndex = decoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
-                while (outputBufferIndex >= 0) {
-                    val outputBuffer = decoder.getOutputBuffer(outputBufferIndex)
-                    if (outputBuffer == null) {
-                        Timber.tag("AudioDecoder").w("Decoder output buffer was null, skipping chunk")
-                        decoder.releaseOutputBuffer(outputBufferIndex, false)
-                        outputBufferIndex = decoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
-                        continue
-                    }
-                    pcmData.addAll(byteBufferToFloatArray(outputBuffer, format).asList())
-                    decoder.releaseOutputBuffer(outputBufferIndex, false)
-
-                    // Si ya tenemos suficientes muestras, salimos del bucle interno
-                    if (pcmData.size >= requiredSamples) break
-
-                    outputBufferIndex = decoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_US)
-                }
-            }
-
-            decoder.stop()
-            decoder.release()
-            extractor.release()
-
-            Timber.tag("AudioDecoder").d("Successfully decoded ${pcmData.size} samples.")
-
-            // --- MODIFICADO: Rellenamos con silencio si la canción es más corta que lo requerido ---
-            if (pcmData.size < requiredSamples) {
-                val padding = FloatArray(requiredSamples - pcmData.size) { 0f }
-                pcmData.addAll(padding.asList())
-            }
-
-            // Devolvemos el array con el tamaño exacto
-            pcmData.toFloatArray().copyOf(requiredSamples)
         }
     }
 

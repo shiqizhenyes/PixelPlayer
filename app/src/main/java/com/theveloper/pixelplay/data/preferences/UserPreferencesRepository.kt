@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.media3.common.Player
+import com.theveloper.pixelplay.data.ai.provider.AiProvider
 import com.theveloper.pixelplay.data.model.PlaybackQueueSnapshot
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.model.SortOption // Added import
@@ -78,7 +79,9 @@ constructor(
 
     private val backupExcludedKeyNames = setOf(
         PreferencesKeys.INITIAL_SETUP_DONE.name
-    )
+    ) + AiProvider.entries.map { "${it.name.lowercase()}_api_key" }
+    // ^ AI provider API keys are stored in this shared DataStore; never serialize them into backups
+    //   (they would be exported in cleartext). Derived from the enum so new providers are covered.
 
     private object PreferencesKeys {
         val APP_REBRAND_DIALOG_SHOWN = booleanPreferencesKey("app_rebrand_dialog_shown")
@@ -973,22 +976,6 @@ constructor(
         }
     }
 
-    suspend fun toggleFavoriteSong(
-            songId: String,
-            removing: Boolean = false
-    ) { // Nueva función para favoritos
-        dataStore.edit { preferences ->
-            val currentFavorites = preferences[PreferencesKeys.FAVORITE_SONG_IDS] ?: emptySet()
-            val contains = currentFavorites.contains(songId)
-
-            if (contains) preferences[PreferencesKeys.FAVORITE_SONG_IDS] = currentFavorites - songId
-            else {
-                if (removing)
-                        preferences[PreferencesKeys.FAVORITE_SONG_IDS] = currentFavorites - songId
-                else preferences[PreferencesKeys.FAVORITE_SONG_IDS] = currentFavorites + songId
-            }
-        }
-    }
 
     suspend fun setFavoriteSong(songId: String, isFavorite: Boolean) {
         dataStore.edit { preferences ->
