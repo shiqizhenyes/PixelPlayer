@@ -921,9 +921,6 @@ class MusicService : MediaLibraryService() {
             }
         }
         return hasWearHints
-        // If hints identify a Wear/remote controller and it's not our app package,
-        // reject to avoid the default Wear system media player hijacking the session.
-        return true
     }
 
     private fun createSleepTimerPendingIntent(): PendingIntent {
@@ -2323,7 +2320,9 @@ class MusicService : MediaLibraryService() {
     }
 
     private fun readBytesCapped(input: java.io.InputStream, maxBytes: Int): ByteArray? {
-        val output = ByteArrayOutputStream()
+        // Pre-size to 4× the read-buffer to reduce reallocation churn on typical album art
+        // (50–300 KB). Still far below the maxBytes cap enforced in the loop below.
+        val output = ByteArrayOutputStream(DEFAULT_STREAM_BUFFER_SIZE * 4)
         val buffer = ByteArray(DEFAULT_STREAM_BUFFER_SIZE)
         var totalRead = 0
         while (true) {
@@ -2836,13 +2835,6 @@ class MusicService : MediaLibraryService() {
             engine.masterPlayer.repeatMode = Player.REPEAT_MODE_OFF
         }
     }
-
-    /**
-     * Bridges a suspend block into a [ListenableFuture] for Media3 callback methods.
-     */
-    /**
-     * Bridges a suspend block into a [ListenableFuture] for Media3 callback methods.
-     */
 
     /**
      * Bridges a suspend block into a [ListenableFuture] for Media3 callback methods.
