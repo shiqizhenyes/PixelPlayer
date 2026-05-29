@@ -98,6 +98,12 @@ internal fun shouldDisableAudioOffloadByDefaultForDevice(
         brandName == "poco"
     if (isXiaomiFamilyDevice && sdkInt >= 36) return true
 
+    // Google Pixel devices on SDK 37+ (Android 16 QPR / 17 preview) exhibit an audio
+    // offload HAL bug where the Opus position counter jumps ~49 seconds at a time,
+    // causing audible skips and incorrect position restoration on player rebuild.
+    val isGooglePixelDevice = manufacturerName == "google" || brandName == "google"
+    if (isGooglePixelDevice && sdkInt >= 37) return true
+
     val isLavaDevice =
         manufacturerName == "lava" ||
             brandName == "lava"
