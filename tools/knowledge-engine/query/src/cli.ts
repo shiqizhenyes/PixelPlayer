@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { buildDb } from './build.js';
+import { consolidate } from './consolidate.js';
 import { DEFAULT_DB_PATH, DEFAULT_JSON_PATH } from './db.js';
 import * as fmt from './format.js';
 import * as core from './query-core.js';
@@ -67,6 +68,16 @@ function main(): void {
             ? flags['json-path']
             : DEFAULT_JSON_PATH);
         buildDb(jsonPath, dbPath);
+        break;
+      }
+
+      case 'consolidate': {
+        const jsonPath =
+          positionals[0] ??
+          (typeof flags['json-path'] === 'string'
+            ? flags['json-path']
+            : DEFAULT_JSON_PATH);
+        consolidate(jsonPath, dbPath);
         break;
       }
 
@@ -156,6 +167,7 @@ Usage: kg <command> [options]
 
 Commands:
   build                    Build graph.db from knowledge-graph.json
+  consolidate              Consolidate SQLite overlays back into knowledge-graph.json
   overview                 Project overview (node/edge counts, hub nodes)
   search <query>           Full-text search across nodes
   node <id>                Node detail with connections

@@ -1,4 +1,7 @@
-import { openReadDb } from './db.js';
+import { readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { openReadDb, DEFAULT_JSON_PATH, DEFAULT_DB_PATH } from './db.js';
+import { buildDb } from './build.js';
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +13,55 @@ export interface BaseOptions {
 // node:sqlite returns null-prototype objects — cast via unknown
 function cast<T>(v: unknown): T {
   return v as T;
+}
+
+// We must check if SQLite graph.db is out-of-date compared to knowledge-graph.json.
+// We do this by checking the hash of knowledge-graph.json in the graph_sync_metadata table.
+export function checkSyncState(dbPath = DEFAULT_DB_PATH, jsonPath = DEFAULT_JSON_PATH): void {
+  if (!existsSync(jsonPath)) return;
+
+  let currentJsonHash = '';
+  try {
+    const raw = readFileSync(jsonPath, 'utf-8');
+    currentJsonHash = createHash('sha256').update(raw).digest('hex');
+  } catch {
+    return;
+  }
+
+  let dbHash = '';
+  const dbExists = existsSync(dbPath);
+  if (dbExists) {
+    let db;
+    try {
+      db = openReadDb(dbPath);
+      const tableExists = db.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='graph_sync_metadata'"
+      ).get();
+
+      if (tableExists) {
+        const row = db.prepare(
+          "SELECT value FROM graph_sync_metadata WHERE key = 'canonical_json_hash'"
+        ).get() as { value: string } | undefined;
+        if (row) {
+          dbHash = row.value;
+        }
+      }
+    } catch {
+      // Ignore reading error
+    } finally {
+      if (db) db.close();
+    }
+  }
+
+  if (!dbExists || dbHash !== currentJsonHash) {
+    console.log(`⚠️ Database sync mismatch. DB hash: "${dbHash}", JSON hash: "${currentJsonHash}". Triggering hot rebuild...`);
+    try {
+      buildDb(jsonPath, dbPath);
+      console.log(`✅ Hot rebuild completed successfully.`);
+    } catch (err) {
+      console.error(`❌ Failed to run hot rebuild:`, err);
+    }
+  }
 }
 
 // ── 1. Overview ───────────────────────────────────────────────────────────────
@@ -29,6 +81,7 @@ export interface OverviewResult {
 }
 
 export function overview(options: BaseOptions = {}): OverviewResult {
+  checkSyncState(options.dbPath);
   const db = openReadDb(options.dbPath);
   try {
     const nodeCounts = cast<OverviewResult['nodeCounts']>(
@@ -112,6 +165,7 @@ export function search(
   query: string,
   options: SearchOptions = {},
 ): SearchResponse {
+  checkSyncState(options.dbPath);
   const db = openReadDb(options.dbPath);
   try {
     const limit = options.limit ?? 15;
@@ -188,6 +242,31 @@ export function search(
       results = cast<SearchResult[]>(db.prepare(fallback).all(...fallbackParams));
     }
 
+    // Override search result fields using agent annotations if they exist
+    if (results.length > 0) {
+      const ids = results.map(r => r.id);
+      const placeholders = ids.map(() => '?').join(',');
+      try {
+        const annRows = cast<Array<{
+          node_id: string;
+          summary: string | null;
+          tags: string | null;
+          complexity: string | null;
+        }>>(
+          db.prepare(`SELECT node_id, summary, tags, complexity FROM agent_annotations WHERE node_id IN (${placeholders})`).all(...ids)
+        );
+        const annMap = new Map(annRows.map(r => [r.node_id, r]));
+        for (const r of results) {
+          const ann = annMap.get(r.id);
+          if (ann && ann.summary) {
+            r.summary = ann.summary;
+          }
+        }
+      } catch {
+        // Ignore if agent_annotations table doesn't exist yet
+      }
+    }
+
     // 3. Find connections between the search results (direct 1-step, transitive 2-step, and MVVM 3-step paths)
     let relations: SearchRelation[] = [];
     if (results.length > 1) {
@@ -196,10 +275,15 @@ export function search(
       
       // A. Direct 1-step edges
       const relationsSql = `
+        WITH combined_edges AS (
+          SELECT source, target, type FROM edges
+          UNION ALL
+          SELECT source, target, type FROM dynamic_edges
+        )
         SELECT e.source, e.target, e.type, 
                COALESCE(ns.file_path, ns.name, ns.id) as source_label, 
                COALESCE(nt.file_path, nt.name, nt.id) as target_label
-        FROM edges e
+        FROM combined_edges e
         JOIN nodes ns ON ns.id = e.source
         JOIN nodes nt ON nt.id = e.target
         WHERE e.source IN (${placeholders}) AND e.target IN (${placeholders})
@@ -211,6 +295,10 @@ export function search(
           SELECT source as s, target as t, type, 'forward' as dir FROM edges
           UNION ALL
           SELECT target as s, source as t, type, 'reverse' as dir FROM edges
+          UNION ALL
+          SELECT source as s, target as t, type, 'forward' as dir FROM dynamic_edges
+          UNION ALL
+          SELECT target as s, source as t, type, 'reverse' as dir FROM dynamic_edges
         )
         SELECT 
           u1.s as source, 
@@ -241,6 +329,10 @@ export function search(
           SELECT source as s, target as t, type, 'forward' as dir FROM edges
           UNION ALL
           SELECT target as s, source as t, type, 'reverse' as dir FROM edges
+          UNION ALL
+          SELECT source as s, target as t, type, 'forward' as dir FROM dynamic_edges
+          UNION ALL
+          SELECT target as s, source as t, type, 'reverse' as dir FROM dynamic_edges
         )
         SELECT 
           u1.s as source, 
@@ -339,6 +431,7 @@ export function node(
   id: string,
   options: BaseOptions = {},
 ): NodeResult | null {
+  checkSyncState(options.dbPath);
   const db = openReadDb(options.dbPath);
   try {
     const nodeData = cast<NodeData | undefined>(
@@ -359,8 +452,13 @@ export function node(
     const inEdges = cast<EdgeRow[]>(
       db
         .prepare(
-          `SELECT e.type, e.source as peer, n.name as peer_name
-           FROM edges e JOIN nodes n ON n.id = e.source
+          `WITH combined_edges AS (
+             SELECT source, target, type FROM edges
+             UNION ALL
+             SELECT source, target, type FROM dynamic_edges
+           )
+           SELECT e.type, e.source as peer, n.name as peer_name
+           FROM combined_edges e JOIN nodes n ON n.id = e.source
            WHERE e.target = ?
            ORDER BY e.type, e.source
            LIMIT ?`,
@@ -371,8 +469,13 @@ export function node(
     const outEdges = cast<EdgeRow[]>(
       db
         .prepare(
-          `SELECT e.type, e.target as peer, n.name as peer_name
-           FROM edges e JOIN nodes n ON n.id = e.target
+          `WITH combined_edges AS (
+             SELECT source, target, type FROM edges
+             UNION ALL
+             SELECT source, target, type FROM dynamic_edges
+           )
+           SELECT e.type, e.target as peer, n.name as peer_name
+           FROM combined_edges e JOIN nodes n ON n.id = e.target
            WHERE e.source = ?
            ORDER BY e.type, e.target
            LIMIT ?`,
@@ -381,11 +484,50 @@ export function node(
     );
 
     const inTotal = cast<{ c: number }>(
-      db.prepare(`SELECT COUNT(*) as c FROM edges WHERE target = ?`).get(id),
+      db.prepare(
+        `WITH combined_edges AS (
+           SELECT source, target, type FROM edges
+           UNION ALL
+           SELECT source, target, type FROM dynamic_edges
+         )
+         SELECT COUNT(*) as c FROM combined_edges WHERE target = ?`
+      ).get(id),
     ).c;
+    
     const outTotal = cast<{ c: number }>(
-      db.prepare(`SELECT COUNT(*) as c FROM edges WHERE source = ?`).get(id),
+      db.prepare(
+        `WITH combined_edges AS (
+           SELECT source, target, type FROM edges
+           UNION ALL
+           SELECT source, target, type FROM dynamic_edges
+         )
+         SELECT COUNT(*) as c FROM combined_edges WHERE source = ?`
+      ).get(id),
     ).c;
+
+    // Fetch and merge dynamic annotations
+    try {
+      const annotation = db.prepare(`SELECT * FROM agent_annotations WHERE node_id = ?`).get(id) as {
+        summary: string | null;
+        tags: string | null;
+        complexity: string | null;
+        knowledge_meta_json: string | null;
+      } | undefined;
+
+      if (annotation) {
+        if (annotation.summary) nodeData.summary = annotation.summary;
+        if (annotation.tags) {
+          nodeData.tags = annotation.tags;
+          nodeData.layer = annotation.tags.split(',')[0] ?? null;
+        }
+        if (annotation.complexity) nodeData.complexity = annotation.complexity;
+        if (annotation.knowledge_meta_json) {
+          (nodeData as any).knowledge_meta = JSON.parse(annotation.knowledge_meta_json);
+        }
+      }
+    } catch {
+      // Ignore if table doesn't exist yet
+    }
 
     return { node: nodeData, members, inEdges, outEdges, inTotal, outTotal };
   } finally {
@@ -407,14 +549,20 @@ export function dependents(
   id: string,
   options: BaseOptions = {},
 ): DependentRow[] {
+  checkSyncState(options.dbPath);
   const db = openReadDb(options.dbPath);
   try {
     const limit = options.limit ?? 20;
     return cast<DependentRow[]>(
       db
         .prepare(
-          `SELECT e.source, n.name, n.type, n.file_path, e.type as edge_type
-           FROM edges e JOIN nodes n ON n.id = e.source
+          `WITH combined_edges AS (
+             SELECT source, target, type FROM edges
+             UNION ALL
+             SELECT source, target, type FROM dynamic_edges
+           )
+           SELECT e.source, n.name, n.type, n.file_path, e.type as edge_type
+           FROM combined_edges e JOIN nodes n ON n.id = e.source
            WHERE e.target = ?
            ORDER BY e.type, e.source
            LIMIT ?`,
@@ -440,14 +588,20 @@ export function dependencies(
   id: string,
   options: BaseOptions = {},
 ): DependencyRow[] {
+  checkSyncState(options.dbPath);
   const db = openReadDb(options.dbPath);
   try {
     const limit = options.limit ?? 20;
     return cast<DependencyRow[]>(
       db
         .prepare(
-          `SELECT e.target, n.name, n.type, n.file_path, e.type as edge_type
-           FROM edges e JOIN nodes n ON n.id = e.target
+          `WITH combined_edges AS (
+             SELECT source, target, type FROM edges
+             UNION ALL
+             SELECT source, target, type FROM dynamic_edges
+           )
+           SELECT e.target, n.name, n.type, n.file_path, e.type as edge_type
+           FROM combined_edges e JOIN nodes n ON n.id = e.target
            WHERE e.source = ?
            ORDER BY e.type, e.target
            LIMIT ?`,
@@ -480,6 +634,7 @@ export function neighbors(
   id: string,
   options: NeighborsOptions = {},
 ): NeighborRow[] {
+  checkSyncState(options.dbPath);
   const db = openReadDb(options.dbPath);
   try {
     const limit = options.limit ?? 30;
@@ -490,15 +645,25 @@ export function neighbors(
     const edgeParam: string[] = options.edgeType ? [options.edgeType] : [];
 
     const getOut = db.prepare(
-      `SELECT DISTINCT e.target as neighbor_id, n.name, n.type, n.file_path,
+      `WITH combined_edges AS (
+         SELECT source, target, type FROM edges
+         UNION ALL
+         SELECT source, target, type FROM dynamic_edges
+       )
+       SELECT DISTINCT e.target as neighbor_id, n.name, n.type, n.file_path,
               e.type as edge_type
-       FROM edges e JOIN nodes n ON n.id = e.target
+       FROM combined_edges e JOIN nodes n ON n.id = e.target
        WHERE e.source = ? ${edgeFilter}`,
     );
     const getIn = db.prepare(
-      `SELECT DISTINCT e.source as neighbor_id, n.name, n.type, n.file_path,
+      `WITH combined_edges AS (
+         SELECT source, target, type FROM edges
+         UNION ALL
+         SELECT source, target, type FROM dynamic_edges
+       )
+       SELECT DISTINCT e.source as neighbor_id, n.name, n.type, n.file_path,
               e.type as edge_type
-       FROM edges e JOIN nodes n ON n.id = e.source
+       FROM combined_edges e JOIN nodes n ON n.id = e.source
        WHERE e.target = ? ${edgeFilter}`,
     );
 
@@ -571,6 +736,7 @@ export function path(
   targetId: string,
   options: PathOptions = {},
 ): PathResult {
+  checkSyncState(options.dbPath);
   const db = openReadDb(options.dbPath);
   try {
     const maxDepth = Math.min(options.maxDepth ?? 6, 8);
@@ -597,7 +763,11 @@ export function path(
     // Preload full adjacency list for BFS
     const allEdges = cast<EdgeRecord[]>(
       db
-        .prepare(`SELECT source, target, type as edge_type FROM edges`)
+        .prepare(`
+          SELECT source, target, type as edge_type FROM edges
+          UNION ALL
+          SELECT source, target, type as edge_type FROM dynamic_edges
+        `)
         .all(),
     );
 

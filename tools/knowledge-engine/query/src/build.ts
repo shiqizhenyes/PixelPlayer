@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { DEFAULT_DB_PATH, DEFAULT_JSON_PATH, openWriteDb } from './db.js';
 
@@ -77,6 +78,31 @@ const SCHEMA = `
   );
 `;
 
+const OVERLAY_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS agent_annotations(
+    node_id TEXT PRIMARY KEY,
+    summary TEXT,
+    tags TEXT,
+    complexity TEXT,
+    knowledge_meta_json TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS dynamic_edges(
+    source TEXT,
+    target TEXT,
+    type TEXT,
+    direction TEXT,
+    weight REAL,
+    description TEXT,
+    PRIMARY KEY (source, target, type)
+  );
+
+  CREATE TABLE IF NOT EXISTS graph_sync_metadata(
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+`;
+
 function withTransaction(db: DatabaseSync, fn: () => void): void {
   db.exec('BEGIN');
   try {
@@ -108,6 +134,7 @@ export function buildDb(
   const db = openWriteDb(dbPath);
   try {
     db.exec(SCHEMA);
+    db.exec(OVERLAY_SCHEMA);
 
     const insertNode = db.prepare(
       `INSERT INTO nodes(id,type,name,file_path,summary,tags,layer,complexity,degree_in,degree_out)
@@ -180,6 +207,24 @@ export function buildDb(
       }
     });
     console.log(`  inserted ${graph.edges.length} edges`);
+
+    // Write metadata
+    const hash = createHash('sha256').update(raw).digest('hex');
+    const mtime = statSync(jsonPath).mtime.toISOString();
+
+    const insertMeta = db.prepare(
+      `INSERT OR REPLACE INTO graph_sync_metadata(key, value) VALUES (?, ?)`
+    );
+    withTransaction(db, () => {
+      insertMeta.run('canonical_json_hash', hash);
+      insertMeta.run('canonical_json_mtime', mtime);
+      
+      const annotationCount = (db.prepare('SELECT COUNT(*) as c FROM agent_annotations').get() as { c: number }).c;
+      const edgeCount = (db.prepare('SELECT COUNT(*) as c FROM dynamic_edges').get() as { c: number }).c;
+      const isDirty = (annotationCount > 0 || edgeCount > 0) ? '1' : '0';
+      insertMeta.run('overlay_dirty_flag', isDirty);
+    });
+
     console.log(`Database written to ${dbPath}`);
   } finally {
     db.close();
