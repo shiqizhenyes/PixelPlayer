@@ -18,6 +18,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -188,6 +189,7 @@ private fun PlayerContent(
     onQueueClick: () -> Unit,
 ) {
     val palette = LocalWearPalette.current
+    val isAmbient by WearLifecycleState.isAmbient.collectAsState()
     // Memoize: radialGradient allocates Shader inputs on every call. PlayerContent
     // recomposes whenever the play-button ring animation ticks, so without this
     // we'd churn the GC for nothing.
@@ -205,7 +207,13 @@ private fun PlayerContent(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(background),
+            .then(
+                if (isAmbient) {
+                    Modifier.background(Color.Black)
+                } else {
+                    Modifier.background(background)
+                }
+            ),
     ) {
         HorizontalPager(
             state = pagerState,
@@ -218,6 +226,7 @@ private fun PlayerContent(
                         state = state,
                         albumArt = albumArt,
                         isCurrentPage = pagerState.currentPage == 0,
+                        isAmbient = isAmbient,
                         isPhoneConnected = isPhoneConnected,
                         isWatchOutputSelected = isWatchOutputSelected,
                         activeVolumeState = activeVolumeState,
@@ -268,6 +277,7 @@ private fun PlayerMainPageHost(
     state: WearPlayerState,
     albumArt: Bitmap?,
     isCurrentPage: Boolean,
+    isAmbient: Boolean,
     isPhoneConnected: Boolean,
     isWatchOutputSelected: Boolean,
     activeVolumeState: WearVolumeState,
@@ -336,6 +346,7 @@ private fun PlayerMainPageHost(
                 state = state,
                 isPhoneConnected = isPhoneConnected,
                 isWatchOutputSelected = isWatchOutputSelected,
+                isAmbient = isAmbient,
                 activeVolumeState = activeVolumeState,
                 onTogglePlayPause = onTogglePlayPause,
                 onNext = onNext,
@@ -389,7 +400,7 @@ private fun PlayerMainPageHost(
                 color = palette.textPrimary,
             )
 
-            if (canShowAlbumArt || albumRevealProgress > 0.01f) {
+            if (!isAmbient && (canShowAlbumArt || albumRevealProgress > 0.01f)) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -997,6 +1008,7 @@ private fun MainPlayerPage(
     state: WearPlayerState,
     isPhoneConnected: Boolean,
     isWatchOutputSelected: Boolean = false,
+    isAmbient: Boolean,
     activeVolumeState: WearVolumeState,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -1138,6 +1150,7 @@ private fun MainPlayerPage(
                     isPlaying = state.isPlaying,
                     isEmpty = state.isEmpty,
                     enabled = if (isWatchOutputSelected) !state.isEmpty else isPhoneConnected,
+                    outlined = isAmbient,
                     trackProgress = trackProgress,
                     onTogglePlayPause = onTogglePlayPause,
                     onNext = onNext,
@@ -1149,6 +1162,7 @@ private fun MainPlayerPage(
                 SecondaryControlsRow(
                     volumeEnabled = volumeEnabled,
                     deviceEnabled = volumeEnabled,
+                    outlined = isAmbient,
                     deviceRouteType = if (isWatchOutputSelected) {
                         com.theveloper.pixelplay.shared.WearVolumeState.ROUTE_TYPE_WATCH
                     } else {
@@ -1327,6 +1341,7 @@ private fun MainControlsRow(
     isPlaying: Boolean,
     isEmpty: Boolean,
     enabled: Boolean,
+    outlined: Boolean,
     trackProgress: Float,
     onTogglePlayPause: () -> Unit,
     onNext: () -> Unit,
@@ -1343,6 +1358,7 @@ private fun MainControlsRow(
             icon = Icons.Rounded.SkipPrevious,
             contentDescription = "Previous",
             enabled = enabled,
+            outlined = outlined,
             onClick = onPrevious,
             width = 44.dp,
             height = 54.dp,
@@ -1353,6 +1369,7 @@ private fun MainControlsRow(
         CenterPlayButton(
             isPlaying = isPlaying,
             enabled = enabled && !isEmpty,
+            outlined = outlined,
             trackProgress = trackProgress,
             onClick = onTogglePlayPause,
         )
@@ -1363,6 +1380,7 @@ private fun MainControlsRow(
             icon = Icons.Rounded.SkipNext,
             contentDescription = "Next",
             enabled = enabled,
+            outlined = outlined,
             onClick = onNext,
             width = 44.dp,
             height = 54.dp,
@@ -1375,19 +1393,41 @@ private fun FlattenedControlButton(
     icon: ImageVector,
     contentDescription: String,
     enabled: Boolean,
+    outlined: Boolean,
     onClick: () -> Unit,
     width: Dp,
     height: Dp,
 ) {
     val palette = LocalWearPalette.current
-    val container = if (enabled) palette.transportContainer else palette.controlDisabledContainer
-    val tint = if (enabled) palette.transportContent else palette.controlDisabledContent
+    val shape = CircleShape
+    val container = when {
+        outlined -> Color.Transparent
+        enabled -> palette.transportContainer
+        else -> palette.controlDisabledContainer
+    }
+    val tint = when {
+        outlined && enabled -> palette.transportContainer
+        enabled -> palette.transportContent
+        else -> palette.controlDisabledContent
+    }
+    val borderColor = if (enabled) {
+        palette.transportContainer.copy(alpha = 0.82f)
+    } else {
+        palette.controlDisabledContent.copy(alpha = 0.34f)
+    }
 
     Box(
         modifier = Modifier
             .size(width = width, height = height)
-            .clip(CircleShape)
+            .clip(shape)
             .background(container)
+            .then(
+                if (outlined) {
+                    Modifier.border(1.5.dp, borderColor, shape)
+                } else {
+                    Modifier
+                }
+            )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -1404,6 +1444,7 @@ private fun FlattenedControlButton(
 private fun CenterPlayButton(
     isPlaying: Boolean,
     enabled: Boolean,
+    outlined: Boolean,
     trackProgress: Float,
     onClick: () -> Unit,
 ) {
@@ -1419,7 +1460,18 @@ private fun CenterPlayButton(
         initial = WearLifecycleState.isInteractiveNow,
     )
     LaunchedEffect(isPlaying, isInteractive) {
-        if (!isPlaying || !isInteractive) return@LaunchedEffect
+        if (!isPlaying || !isInteractive) {
+            val normalizedRotation = ((rotation.value % 360f) + 360f) % 360f
+            rotation.snapTo(normalizedRotation)
+            rotation.animateTo(
+                targetValue = 0f,
+                animationSpec = tween(
+                    durationMillis = 520,
+                    easing = LinearEasing,
+                ),
+            )
+            return@LaunchedEffect
+        }
         while (true) {
             val current = rotation.value
             rotation.animateTo(
@@ -1441,17 +1493,30 @@ private fun CenterPlayButton(
         label = "playButtonSize",
     )
     val container by animateColorAsState(
-        targetValue = if (enabled) palette.controlContainer else palette.controlDisabledContainer,
+        targetValue = when {
+            outlined -> Color.Transparent
+            enabled -> palette.controlContainer
+            else -> palette.controlDisabledContainer
+        },
         animationSpec = spring(),
         label = "playContainer",
     )
     val tint by animateColorAsState(
-        targetValue = if (enabled) palette.controlContent else palette.controlDisabledContent,
+        targetValue = when {
+            outlined && enabled -> palette.controlContainer
+            enabled -> palette.controlContent
+            else -> palette.controlDisabledContent
+        },
         animationSpec = spring(),
         label = "playTint",
     )
 
     val ringProgress = trackProgress.coerceIn(0f, 1f)
+    val playButtonShape = RoundedStarShape(
+        sides = 8,
+        curve = animatedCurve.toDouble(),
+        rotation = animatedRotation,
+    )
 
     Box(
         modifier = Modifier.size(animatedSize + 12.dp),
@@ -1525,14 +1590,23 @@ private fun CenterPlayButton(
         Box(
             modifier = Modifier
                 .size(animatedSize)
-                .clip(
-                    RoundedStarShape(
-                        sides = 8,
-                        curve = animatedCurve.toDouble(),
-                        rotation = animatedRotation,
-                    )
-                )
+                .clip(playButtonShape)
                 .background(container)
+                .then(
+                    if (outlined) {
+                        Modifier.border(
+                            width = 1.6.dp,
+                            color = if (enabled) {
+                                palette.controlContainer.copy(alpha = 0.86f)
+                            } else {
+                                palette.controlDisabledContent.copy(alpha = 0.34f)
+                            },
+                            shape = playButtonShape,
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -1588,6 +1662,7 @@ private fun buildPlayButtonRingPath(
 private fun SecondaryControlsRow(
     volumeEnabled: Boolean,
     deviceEnabled: Boolean,
+    outlined: Boolean,
     deviceRouteType: String,
     moreEnabled: Boolean,
     onVolumeClick: () -> Unit,
@@ -1611,6 +1686,7 @@ private fun SecondaryControlsRow(
                 enabled = volumeEnabled,
                 active = false,
                 activeColor = deviceActiveColor,
+                outlined = outlined,
                 raisedInactiveStyle = true,
                 onClick = onVolumeClick,
                 contentDescription = "Volume",
@@ -1622,6 +1698,7 @@ private fun SecondaryControlsRow(
                 enabled = deviceEnabled,
                 active = deviceRouteType == com.theveloper.pixelplay.shared.WearVolumeState.ROUTE_TYPE_WATCH,
                 activeColor = deviceActiveColor,
+                outlined = outlined,
                 raisedInactiveStyle = true,
                 onClick = onOutputClick,
                 contentDescription = "Output device",
@@ -1633,6 +1710,7 @@ private fun SecondaryControlsRow(
                 enabled = moreEnabled,
                 active = false,
                 activeColor = deviceActiveColor,
+                outlined = outlined,
                 raisedInactiveStyle = true,
                 heavilyMutedWhenDisabled = true,
                 onClick = onMoreClick,
@@ -1648,6 +1726,7 @@ private fun SecondaryActionButton(
     enabled: Boolean,
     active: Boolean,
     activeColor: Color,
+    outlined: Boolean,
     raisedInactiveStyle: Boolean = false,
     heavilyMutedWhenDisabled: Boolean = false,
     onClick: () -> Unit,
@@ -1677,6 +1756,7 @@ private fun SecondaryActionButton(
     }
     val container by animateColorAsState(
         targetValue = when {
+            outlined -> Color.Transparent
             !enabled -> disabledContainerColor
             active -> activeContainerColor
             else -> inactiveContainerColor
@@ -1686,6 +1766,7 @@ private fun SecondaryActionButton(
     )
     val tint by animateColorAsState(
         targetValue = when {
+            outlined && enabled -> if (active) activeColor else inactiveContentColor
             !enabled -> disabledContentColor
             active -> if (activeContainerColor.luminance() > 0.52f) Color.Black else Color.White
             else -> inactiveContentColor
@@ -1694,11 +1775,25 @@ private fun SecondaryActionButton(
         label = "secondaryTint",
     )
 
+    val shape = RoundedCornerShape(18.dp)
+    val borderColor = when {
+        !enabled -> disabledContentColor.copy(alpha = 0.32f)
+        active -> activeColor.copy(alpha = 0.84f)
+        else -> inactiveContentColor.copy(alpha = 0.62f)
+    }
+
     Box(
         modifier = Modifier
             .size(width = 48.dp, height = 36.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .clip(shape)
             .background(container)
+            .then(
+                if (outlined) {
+                    Modifier.border(1.4.dp, borderColor, shape)
+                } else {
+                    Modifier
+                }
+            )
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
