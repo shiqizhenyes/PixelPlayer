@@ -612,12 +612,16 @@ fun QueueBottomSheet(
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (updatedIsReordering || updatedReorderHandleInUse) return Offset.Zero
 
-                if (draggingSheetFromList && available.y < 0f) {
-                    finalizeListDrag()
-                    return Offset.Zero
-                }
-
                 if (draggingSheetFromList) {
+                    // While dragging the sheet from the list, keep consuming vertical
+                    // movement in BOTH directions so an upward drag can pull the sheet
+                    // back up and cancel the gesture (like a normal bottom sheet).
+                    // Only once the sheet is fully expanded again do we release control
+                    // back to the list so it can scroll its contents.
+                    if (available.y < 0f && queueSheetOffset.value <= 0.5f) {
+                        finalizeListDrag()
+                        return Offset.Zero
+                    }
                     listDragAccumulated += available.y
                     updatedOnQueueDrag(available.y)
                     return available
