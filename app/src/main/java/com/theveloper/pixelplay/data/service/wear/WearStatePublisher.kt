@@ -1,14 +1,16 @@
 package com.theveloper.pixelplay.data.service.wear
-
+ 
 import android.app.Application
 import android.content.Context
 import android.graphics.Color as AndroidColor
 import android.media.AudioManager
 import android.net.Uri
 import androidx.core.graphics.ColorUtils
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import com.google.android.gms.wearable.Asset
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
+import com.theveloper.pixelplay.data.preferences.dataStore
 import com.theveloper.pixelplay.data.model.PlayerInfo
 import com.theveloper.pixelplay.shared.WearDataPaths
 import com.theveloper.pixelplay.shared.WearLyrics
@@ -21,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
@@ -87,8 +90,16 @@ class WearStatePublisher @Inject constructor(
     }
 
     private suspend fun publishStateInternal(songId: String?, playerInfo: PlayerInfo) {
+        // Read lyrics display preferences from DataStore so the watch respects
+        // the same translation/romanization visibility as the phone UI.
+        val prefs = application.dataStore.data.first()
+        val showLyricsTranslation = prefs[booleanPreferencesKey("show_lyrics_translation")] ?: true
+        val showLyricsRomanization = prefs[booleanPreferencesKey("show_lyrics_romanization")] ?: true
+
         val volumeLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
         val volumeMax = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+
+        val wearLyrics = playerInfo.lyrics?.toWearLyrics(showLyricsTranslation, showLyricsRomanization)
 
         val wearState = WearPlayerState(
             songId = songId.orEmpty(),
@@ -105,7 +116,7 @@ class WearStatePublisher @Inject constructor(
             volumeMax = volumeMax,
             themePalette = buildWearThemePalette(playerInfo),
             queueRevision = playerInfo.wearQueueRevision,
-            lyrics = playerInfo.lyrics?.toWearLyrics(),
+            lyrics = wearLyrics,
         )
 
         val stateJson = json.encodeToString(wearState)
@@ -308,7 +319,10 @@ class WearStatePublisher @Inject constructor(
         return if (lightContrast >= darkContrast) light else dark
     }
 
-    private fun com.theveloper.pixelplay.data.model.Lyrics.toWearLyrics(): WearLyrics? {
+    private fun com.theveloper.pixelplay.data.model.Lyrics.toWearLyrics(
+        showTranslation: Boolean = true,
+        showRomanization: Boolean = true,
+    ): WearLyrics? {
         val syncedLines = synced
             ?.asSequence()
             ?.filter { it.line.isNotBlank() || !it.translation.isNullOrBlank() || !it.romanization.isNullOrBlank() }
@@ -317,8 +331,8 @@ class WearStatePublisher @Inject constructor(
                 WearSyncedLyricLine(
                     timeMs = line.time,
                     line = line.line,
-                    translation = line.translation,
-                    romanization = line.romanization,
+                    translation = if (showTranslation) line.translation else null,
+                    romanization = if (showRomanization) line.romanization else null,
                 )
             }
             ?.toList()
