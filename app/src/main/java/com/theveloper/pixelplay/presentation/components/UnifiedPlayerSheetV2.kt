@@ -688,16 +688,27 @@ fun UnifiedPlayerSheetV2(
                             // Measures the actual player content with full screen height targetContentHeightPx
                             // so that it can render correctly, while reporting targetHeightPx to the outer
                             // clip/background/shadow so that they are perfectly constrained to the miniplayer card bounds.
+                            // During drag/animation, we measure at stable full-screen constraints to prevent jank.
                             .layout { measurable, constraints ->
                                 val targetContentHeightPx = containerHeight.roundToPx()
+                                val fraction = playerContentExpansionFraction.value
+                                val startPaddingPx = currentHorizontalPaddingStartPxProvider().toInt()
+                                val measureWidth = if (fraction > 0f) {
+                                    screenWidthPx.roundToInt()
+                                } else {
+                                    constraints.maxWidth
+                                }
                                 val placeable = measurable.measure(
                                     constraints.copy(
+                                        minWidth = measureWidth,
+                                        maxWidth = measureWidth,
                                         minHeight = targetContentHeightPx,
                                         maxHeight = targetContentHeightPx
                                     )
                                 )
                                 layout(constraints.maxWidth, constraints.maxHeight) {
-                                    placeable.placeRelative(0, 0)
+                                    val xOffset = if (fraction > 0f) -startPaddingPx else 0
+                                    placeable.placeRelative(xOffset, 0)
                                 }
                             }
                             .miniPlayerDismissHorizontalGesture(
