@@ -48,6 +48,23 @@ class WearStatePublisher @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val json = Json { ignoreUnknownKeys = true }
 
+    private val artworkCacheLock = Any()
+    private var lastArtworkUri: String? = null
+    private var lastRawBitmapData: ByteArray? = null
+    private var cachedWearArtAsset: Asset? = null
+
+    /**
+     * Clear the cached artwork assets.
+     */
+    fun clearCache() {
+        synchronized(artworkCacheLock) {
+            lastArtworkUri = null
+            lastRawBitmapData = null
+            cachedWearArtAsset = null
+        }
+        Timber.tag(TAG).d("Cleared Wear artwork cache")
+    }
+
     companion object {
         private const val TAG = "WearStatePublisher"
         private const val MAX_WEAR_LYRIC_LINES = 180
@@ -74,6 +91,7 @@ class WearStatePublisher @Inject constructor(
      * Clear state from the Data Layer (e.g. when service is destroyed).
      */
     fun clearState() {
+        clearCache()
         scope.launch {
             try {
                 val request = PutDataMapRequest.create(WearDataPaths.PLAYER_STATE).apply {
@@ -125,9 +143,8 @@ class WearStatePublisher @Inject constructor(
             dataMap.putString(WearDataPaths.KEY_STATE_JSON, stateJson)
             dataMap.putLong(WearDataPaths.KEY_TIMESTAMP, System.currentTimeMillis())
 
-            // Attach album art as Asset if available
-            val wearArtBytes = resolveArtworkBytesForWear(playerInfo)
-            val artAsset = createAlbumArtAsset(wearArtBytes)
+            // Attach album art as Asset if available (cached to prevent duplicate processing)
+            val artAsset = getOrCreateWearArtworkAsset(playerInfo)
             if (artAsset != null) {
                 dataMap.putAsset(WearDataPaths.KEY_ALBUM_ART, artAsset)
             } else {
@@ -137,6 +154,45 @@ class WearStatePublisher @Inject constructor(
 
         dataClient.putDataItem(request)
         Timber.tag(TAG).d("Published state to Wear: ${wearState.songTitle} (playing=${wearState.isPlaying})")
+    }
+
+    private fun getOrCreateWearArtworkAsset(playerInfo: PlayerInfo): Asset? {
+        val uriString = playerInfo.albumArtUri
+        val rawBitmapData = playerInfo.albumArtBitmapData
+
+        synchronized(artworkCacheLock) {
+            val uriMatches = uriString == lastArtworkUri
+            val dataMatches = if (rawBitmapData == null && lastRawBitmapData == null) {
+                true
+            } else if (rawBitmapData != null && lastRawBitmapData != null) {
+                rawBitmapData === lastRawBitmapData || rawBitmapData.contentEquals(lastRawBitmapData)
+            } else {
+                false
+            }
+            if (uriMatches && dataMatches) {
+                return cachedWearArtAsset
+            }
+        }
+
+        val sanitizedBytes = resolveArtworkBytesForWear(playerInfo)
+        val asset = if (sanitizedBytes != null) {
+            try {
+                Asset.createFromBytes(sanitizedBytes)
+            } catch (e: Exception) {
+                Timber.tag(TAG).w(e, "Failed to create album art asset")
+                null
+            }
+        } else {
+            null
+        }
+
+        synchronized(artworkCacheLock) {
+            lastArtworkUri = uriString
+            lastRawBitmapData = rawBitmapData
+            cachedWearArtAsset = asset
+        }
+
+        return asset
     }
 
     private fun resolveArtworkBytesForWear(playerInfo: PlayerInfo): ByteArray? {
@@ -168,23 +224,6 @@ class WearStatePublisher @Inject constructor(
             data = playerInfo.albumArtBitmapData,
             config = ArtworkTransportSanitizer.WEAR_CONFIG,
         )
-    }
-
-    /**
-     * Compress album art to a JPEG suitable for full-screen watch display.
-     * Uses bounded downscale to preserve sharpness while keeping payload reasonable.
-     */
-    private fun createAlbumArtAsset(artBitmapData: ByteArray?): Asset? {
-        val boundedBytes = ArtworkTransportSanitizer.sanitizeEncodedBytes(
-            data = artBitmapData,
-            config = ArtworkTransportSanitizer.WEAR_CONFIG,
-        ) ?: return null
-        return try {
-            Asset.createFromBytes(boundedBytes)
-        } catch (e: Exception) {
-            Timber.tag(TAG).w(e, "Failed to create album art asset")
-            null
-        }
     }
 
     private fun downloadAndSanitizeRemoteArtwork(uriString: String): ByteArray? {

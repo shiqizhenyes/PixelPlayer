@@ -89,6 +89,7 @@ internal class WidgetUpdateManager(
      */
     fun clearCachedState() {
         lastWidgetPlayerInfo = null
+        wearStatePublisher.clearCache()
     }
 
     private suspend fun processUpdateInternal() {
