@@ -432,11 +432,25 @@ fun SongInfoBottomSheet(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Swipeable Content
+                    var isPageTransitioning by remember { mutableStateOf(false) }
+                    LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+                        if (pagerState.isScrollInProgress) {
+                            isPageTransitioning = true
+                        } else {
+                            kotlinx.coroutines.delay(300)
+                            isPageTransitioning = false
+                        }
+                    }
+                    val sizeAnimationSpec = if (isPageTransitioning) {
+                        tween<androidx.compose.ui.unit.IntSize>(durationMillis = 280)
+                    } else {
+                        androidx.compose.animation.core.snap()
+                    }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize(
-                                animationSpec = tween(durationMillis = 280),
+                                animationSpec = sizeAnimationSpec,
                                 alignment = Alignment.TopCenter
                             )
                     ) {
@@ -449,188 +463,174 @@ fun SongInfoBottomSheet(
                         ) { page ->
                             when (page) {
                                 0 -> { // Options / Actions
-                                    LazyColumn(
+                                    Column(
                                         modifier = Modifier
-                                            .fillMaxWidth(),
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
                                         verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                                                                item {
-                                            Row1Actions(
-                                                isFavorite = isFavorite,
-                                                onPlaySong = onPlaySong,
-                                                onToggleFavorite = onToggleFavorite,
-                                                onShareClick = {
-                                                    try {
-                                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                            type = "audio/*"
-                                                            putExtra(Intent.EXTRA_STREAM, song.contentUriString.toUri())
-                                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                                        }
-                                                        context.startActivity(
-                                                            Intent.createChooser(
-                                                                shareIntent,
-                                                                context.getString(R.string.song_info_share_chooser_title)
-                                                            )
-                                                        )
-                                                    } catch (e: Exception) {
-                                                        Toast.makeText(
-                                                            context,
-                                                            context.getString(R.string.error_share_song_format, e.localizedMessage ?: ""),
-                                                            Toast.LENGTH_LONG
-                                                        ).show()
+                                        Row1Actions(
+                                            isFavorite = isFavorite,
+                                            onPlaySong = onPlaySong,
+                                            onToggleFavorite = onToggleFavorite,
+                                            onShareClick = {
+                                                try {
+                                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                        type = "audio/*"
+                                                        putExtra(Intent.EXTRA_STREAM, song.contentUriString.toUri())
+                                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                                     }
-                                                },
-                                                playButtonShape = playButtonShape,
-                                                evenCornerRadiusElems = evenCornerRadiusElems
-                                            )
-                                        }
+                                                    context.startActivity(
+                                                        Intent.createChooser(
+                                                            shareIntent,
+                                                            context.getString(R.string.song_info_share_chooser_title)
+                                                        )
+                                                    )
+                                                } catch (e: Exception) {
+                                                    Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.error_share_song_format, e.localizedMessage ?: ""),
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
+                                                }
+                                            },
+                                            playButtonShape = playButtonShape,
+                                            evenCornerRadiusElems = evenCornerRadiusElems
+                                        )
 
-                                        item {
-                                            Row2Actions(
-                                                onAddToQueue = onAddToQueue,
-                                                onAddNextToQueue = onAddNextToQueue
-                                            )
-                                        }
+                                        Row2Actions(
+                                            onAddToQueue = onAddToQueue,
+                                            onAddNextToQueue = onAddNextToQueue
+                                        )
 
-                                        item {
-                                            Row3Actions(
-                                                onAddToPlaylist = onAddToPlayList,
-                                                onDelete = {
-                                                    (context as? Activity)?.let { activity ->
-                                                        onDeleteFromDevice(activity, song) { result ->
-                                                            if (result) {
-                                                                removeFromListTrigger()
-                                                                onDismiss()
-                                                            }
+                                        Row3Actions(
+                                            onAddToPlaylist = onAddToPlayList,
+                                            onDelete = {
+                                                (context as? Activity)?.let { activity ->
+                                                    onDeleteFromDevice(activity, song) { result ->
+                                                        if (result) {
+                                                            removeFromListTrigger()
+                                                            onDismiss()
                                                         }
                                                     }
                                                 }
-                                            )
-                                        }
+                                            }
+                                        )
 
                                         val shouldRenderWatchTransferRow =
                                             currentSongTransfer != null ||
                                                     shouldOfferWatchTransfer ||
                                                     shouldShowWatchTransferLoading
-                                        item {
-                                            if (shouldRenderWatchTransferRow) {
-                                                Row4Actions(
-                                                    isPixelPlayWatchAvailable = isPixelPlayWatchAvailable,
-                                                    isSendingToWatch = isSendingToWatch,
-                                                    shouldOfferWatchTransfer = shouldOfferWatchTransfer,
-                                                    shouldShowWatchTransferLoading = shouldShowWatchTransferLoading,
-                                                    currentSongTransferPercent = currentSongTransferPercent,
-                                                    currentSongTransferStatus = currentSongTransfer?.status,
-                                                    currentSongTransferTotalBytes = currentSongTransfer?.totalBytes ?: 0L,
-                                                    onRingtoneClick = { showTonePickerDialog = true },
-                                                    onSendToWatchClick = {
-                                                        songInfoViewModel.sendSongToWatch(song) { message ->
-                                                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-                                                        }
+                                        if (shouldRenderWatchTransferRow) {
+                                            Row4Actions(
+                                                isPixelPlayWatchAvailable = isPixelPlayWatchAvailable,
+                                                isSendingToWatch = isSendingToWatch,
+                                                shouldOfferWatchTransfer = shouldOfferWatchTransfer,
+                                                shouldShowWatchTransferLoading = shouldShowWatchTransferLoading,
+                                                currentSongTransferPercent = currentSongTransferPercent,
+                                                currentSongTransferStatus = currentSongTransfer?.status,
+                                                currentSongTransferTotalBytes = currentSongTransfer?.totalBytes ?: 0L,
+                                                onRingtoneClick = { showTonePickerDialog = true },
+                                                onSendToWatchClick = {
+                                                    songInfoViewModel.sendSongToWatch(song) { message ->
+                                                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                                                     }
-                                                )
-                                            } else {
-                                                RingtoneActionButton(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .heightIn(min = 66.dp),
-                                                    showText = true,
-                                                    onClick = { showTonePickerDialog = true },
-                                                )
-                                            }
+                                                }
+                                            )
+                                        } else {
+                                            RingtoneActionButton(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .heightIn(min = 66.dp),
+                                                showText = true,
+                                                onClick = { showTonePickerDialog = true },
+                                            )
                                         }
 
-                                        item {
-                                            Spacer(Modifier.height(80.dp))
-                                        }
+                                        Spacer(Modifier.height(80.dp))
                                     }
                                 }
                                 1 -> { // Details / Info
-                                    LazyColumn(
+                                    Column(
                                         modifier = Modifier
-                                            .fillMaxWidth(),
-                                        contentPadding = PaddingValues(horizontal = 16.dp),
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
                                         verticalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        item {
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(infoSegmentContainerShape),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(infoSegmentContainerShape),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            SongInfoSegmentedListItem(
+                                                headline = stringResource(R.string.song_info_label_duration),
+                                                supporting = formatDuration(song.duration),
+                                                icon = Icons.Rounded.Schedule,
+                                                iconDescription = stringResource(R.string.cd_duration_icon),
+                                                shape = infoSegmentItemShape,
+                                            )
+
+                                            if (!song.genre.isNullOrEmpty()) {
                                                 SongInfoSegmentedListItem(
-                                                    headline = stringResource(R.string.song_info_label_duration),
-                                                    supporting = formatDuration(song.duration),
-                                                    icon = Icons.Rounded.Schedule,
-                                                    iconDescription = stringResource(R.string.cd_duration_icon),
+                                                    headline = stringResource(R.string.song_field_genre),
+                                                    supporting = song.genre,
+                                                    icon = Icons.Rounded.MusicNote,
+                                                    iconDescription = stringResource(R.string.cd_genre_icon),
                                                     shape = infoSegmentItemShape,
+                                                    onClick = onNavigateToGenre,
                                                 )
+                                            }
 
-                                                if (!song.genre.isNullOrEmpty()) {
-                                                    SongInfoSegmentedListItem(
-                                                        headline = stringResource(R.string.song_field_genre),
-                                                        supporting = song.genre,
-                                                        icon = Icons.Rounded.MusicNote,
-                                                        iconDescription = stringResource(R.string.cd_genre_icon),
-                                                        shape = infoSegmentItemShape,
-                                                        onClick = onNavigateToGenre,
-                                                    )
-                                                }
+                                            SongInfoSegmentedListItem(
+                                                headline = stringResource(R.string.song_field_album),
+                                                supporting = song.album,
+                                                icon = Icons.Rounded.Album,
+                                                iconDescription = stringResource(R.string.cd_album_icon),
+                                                shape = infoSegmentItemShape,
+                                                onClick = onNavigateToAlbum,
+                                            )
 
+                                            SongInfoSegmentedListItem(
+                                                headline = stringResource(R.string.song_field_artist),
+                                                supporting = song.displayArtist,
+                                                icon = Icons.Rounded.Person,
+                                                iconDescription = stringResource(R.string.cd_artist_icon),
+                                                shape = infoSegmentItemShape,
+                                                onClick = {
+                                                    if (song.artists.size > 1) {
+                                                        showArtistPicker = true
+                                                    } else {
+                                                        onNavigateToArtist()
+                                                    }
+                                                },
+                                            )
+
+                                            if (!audioMetaLabel.isNullOrEmpty()) {
                                                 SongInfoSegmentedListItem(
-                                                    headline = stringResource(R.string.song_field_album),
-                                                    supporting = song.album,
-                                                    icon = Icons.Rounded.Album,
-                                                    iconDescription = stringResource(R.string.cd_album_icon),
-                                                    shape = infoSegmentItemShape,
-                                                    onClick = onNavigateToAlbum,
-                                                )
-
-                                                SongInfoSegmentedListItem(
-                                                    headline = stringResource(R.string.song_field_artist),
-                                                    supporting = song.displayArtist,
-                                                    icon = Icons.Rounded.Person,
-                                                    iconDescription = stringResource(R.string.cd_artist_icon),
-                                                    shape = infoSegmentItemShape,
-                                                    onClick = {
-                                                        if (song.artists.size > 1) {
-                                                            showArtistPicker = true
-                                                        } else {
-                                                            onNavigateToArtist()
-                                                        }
-                                                    },
-                                                )
-
-                                                if (!audioMetaLabel.isNullOrEmpty()) {
-                                                    SongInfoSegmentedListItem(
-                                                        headline = stringResource(R.string.song_info_label_song_metadata),
-                                                        supporting = audioMetaLabel,
-                                                        icon = Icons.Rounded.Info,
-                                                        iconDescription = stringResource(R.string.cd_audio_format_icon),
-                                                        shape = infoSegmentItemShape,
-                                                    )
-                                                }
-
-                                                SongInfoSegmentedListItem(
-                                                    headline = songLocationInfo.label,
-                                                    supporting = songLocationInfo.value,
-                                                    icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
-                                                    iconDescription = stringResource(
-                                                        if (songLocationInfo.isCloud) {
-                                                            R.string.cd_provider_icon
-                                                        } else {
-                                                            R.string.cd_file_icon
-                                                        }
-                                                    ),
+                                                    headline = stringResource(R.string.song_info_label_song_metadata),
+                                                    supporting = audioMetaLabel,
+                                                    icon = Icons.Rounded.Info,
+                                                    iconDescription = stringResource(R.string.cd_audio_format_icon),
                                                     shape = infoSegmentItemShape,
                                                 )
                                             }
+
+                                            SongInfoSegmentedListItem(
+                                                headline = songLocationInfo.label,
+                                                supporting = songLocationInfo.value,
+                                                icon = if (songLocationInfo.isCloud) Icons.Rounded.Cloud else Icons.Rounded.AudioFile,
+                                                iconDescription = stringResource(
+                                                    if (songLocationInfo.isCloud) {
+                                                        R.string.cd_provider_icon
+                                                    } else {
+                                                        R.string.cd_file_icon
+                                                    }
+                                                ),
+                                                shape = infoSegmentItemShape,
+                                            )
                                         }
-                                        item {
-                                            Spacer(Modifier.height(80.dp))
-                                        }
+                                        Spacer(Modifier.height(80.dp))
                                     }
                                 }
                             }
