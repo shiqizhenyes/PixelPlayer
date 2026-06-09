@@ -151,6 +151,10 @@ fun SongInfoBottomSheet(
     songInfoViewModel: SongInfoBottomSheetViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val ringtonePermissionMissingMsg = stringResource(R.string.song_info_ringtone_permission_missing)
+    val ringtoneFailedFormat = stringResource(R.string.song_info_ringtone_failed)
+    val shareChooserTitle = stringResource(R.string.song_info_share_chooser_title)
+    val errorShareSongFormat = stringResource(R.string.error_share_song_format)
     var showEditSheet by remember { mutableStateOf(false) }
     var showArtistPicker by remember { mutableStateOf(false) }
     var showTonePickerDialog by remember { mutableStateOf(false) }
@@ -213,7 +217,7 @@ fun SongInfoBottomSheet(
         } else {
             Toast.makeText(
                 context,
-                context.getString(R.string.song_info_ringtone_permission_missing),
+                ringtonePermissionMissingMsg,
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -233,10 +237,7 @@ fun SongInfoBottomSheet(
                 pendingTonePermissionTarget = null
                 Toast.makeText(
                     context,
-                    context.getString(
-                        R.string.song_info_ringtone_failed,
-                        e.localizedMessage ?: ""
-                    ),
+                    ringtoneFailedFormat.format(e.localizedMessage ?: ""),
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -517,13 +518,13 @@ fun SongInfoBottomSheet(
                                                     context.startActivity(
                                                         Intent.createChooser(
                                                             shareIntent,
-                                                            context.getString(R.string.song_info_share_chooser_title)
+                                                            shareChooserTitle
                                                         )
                                                     )
                                                 } catch (e: Exception) {
                                                     Toast.makeText(
                                                         context,
-                                                        context.getString(R.string.error_share_song_format, e.localizedMessage ?: ""),
+                                                        errorShareSongFormat.format(e.localizedMessage ?: ""),
                                                         Toast.LENGTH_LONG
                                                     ).show()
                                                 }

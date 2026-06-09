@@ -752,7 +752,7 @@ fun LyricsSheet(
                                     if (isLoadingLyrics) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Text(
-                                                text = context.resources.getString(R.string.loading_lyrics),
+                                                text = stringResource(R.string.loading_lyrics),
                                                 style = MaterialTheme.typography.titleMedium
                                             )
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -805,8 +805,8 @@ fun LyricsSheet(
                                     if (lyrics?.areFromRemote == true) {
                                         item(key = "provider_text") {
                                             ProviderText(
-                                                providerText = context.resources.getString(R.string.lyrics_provided_by),
-                                                uri = context.resources.getString(R.string.lrclib_uri),
+                                                providerText = stringResource(R.string.lyrics_provided_by),
+                                                uri = stringResource(R.string.lrclib_uri),
                                                 textAlign = TextAlign.Center,
                                                 accentColor = lyricHighlightColor,
                                                 modifier = Modifier

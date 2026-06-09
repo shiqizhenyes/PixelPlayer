@@ -86,6 +86,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -358,6 +359,9 @@ private fun CreateAiPlaylistContent(
     var avoidExplicit by rememberSaveable { mutableStateOf(false) }
     var localError by rememberSaveable { mutableStateOf<String?>(null) }
     val controlsEnabled = !isGenerating
+    // Obtain resources through LocalConfiguration so any locale/config change
+    // triggers recomposition and all derived strings are refreshed.
+    LocalConfiguration.current
     val resources = LocalContext.current.resources
 
     val moodOptions = stringArrayResource(R.array.presentation_batch_e_ai_mood_options).toList()
@@ -380,17 +384,22 @@ private fun CreateAiPlaylistContent(
         avoidExplicit = avoidExplicit
     )
 
+    // Hoist error strings at composition time so they are properly invalidated
+    // on locale changes and can be safely captured in the onClick lambda below.
+    val errorAddInstruction = stringResource(R.string.presentation_batch_e_ai_error_add_instruction)
+    val errorSongRange = stringResource(R.string.presentation_batch_e_ai_error_song_range)
+
     val triggerGeneration: () -> Unit = generation@{
         val minSongs = minSongsInput.toIntOrNull()
         val maxSongs = maxSongsInput.toIntOrNull()
 
         if (generatedPromptPreview.isBlank()) {
-            localError = resources.getString(R.string.presentation_batch_e_ai_error_add_instruction)
+            localError = errorAddInstruction
             return@generation
         }
 
         if (minSongs == null || maxSongs == null) {
-            localError = resources.getString(R.string.presentation_batch_e_ai_error_song_range)
+            localError = errorSongRange
             return@generation
         }
 

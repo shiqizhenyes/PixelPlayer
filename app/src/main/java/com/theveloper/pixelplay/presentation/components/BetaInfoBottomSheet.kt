@@ -85,15 +85,16 @@ fun BetaInfoBottomSheet(modifier: Modifier = Modifier) {
         }
     }
 
-    val displayVersion = remember(versionName) {
-        val original = context.getString(R.string.presentation_batch_g_beta_sheet_version)
+    val versionStrTemplate = stringResource(R.string.presentation_batch_g_beta_sheet_version)
+    val welcomeTitleTemplate = stringResource(R.string.presentation_batch_g_beta_sheet_welcome_title)
+
+    val displayVersion = remember(versionName, versionStrTemplate) {
         val cleanVersion = versionName.substringBefore("-")
-        original.replace(Regex("""\d+\.\d+\.\d+"""), cleanVersion)
+        versionStrTemplate.replace(Regex("""\d+\.\d+\.\d+"""), cleanVersion)
     }
 
-    val welcomeTitle = remember(versionName) {
-        val original = context.getString(R.string.presentation_batch_g_beta_sheet_welcome_title)
-        original.replace(Regex("""\d+\.\d+\.\d+(?:-beta)?"""), versionName)
+    val welcomeTitle = remember(versionName, welcomeTitleTemplate) {
+        welcomeTitleTemplate.replace(Regex("""\d+\.\d+\.\d+(?:-beta)?"""), versionName)
     }
 
     Box(

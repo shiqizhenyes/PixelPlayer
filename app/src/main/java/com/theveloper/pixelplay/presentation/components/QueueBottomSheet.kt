@@ -120,7 +120,7 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -256,10 +256,13 @@ fun QueueBottomSheet(
     shape: RoundedCornerShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
 ) {
     val colors = MaterialTheme.colorScheme
-    val context = LocalContext.current
     var showTimerOptions by rememberSaveable { mutableStateOf(false) }
     var showClearQueueDialog by remember { mutableStateOf(false) }
     var isFabExpanded by rememberSaveable { mutableStateOf(false) }
+    // Hoist resource strings at composition time so they react to locale changes
+    // and can be safely captured in onClick lambdas.
+    val queueNamedSuffixTemplate = stringResource(R.string.presentation_batch_e_queue_named_suffix)
+    val queueCurrentLabel = stringResource(R.string.presentation_batch_e_queue_current)
 
     LaunchedEffect(isVisible) {
         if (!isVisible) {
@@ -1091,14 +1094,10 @@ fun QueueBottomSheet(
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 onClick = {
                                     isFabExpanded = false
-                                    val res = context.resources
                                     val defaultName = if (currentQueueSourceName.isNotBlank()) {
-                                        res.getString(
-                                            R.string.presentation_batch_e_queue_named_suffix,
-                                            currentQueueSourceName
-                                        )
+                                        queueNamedSuffixTemplate.format(currentQueueSourceName)
                                     } else {
-                                        res.getString(R.string.presentation_batch_e_queue_current)
+                                        queueCurrentLabel
                                     }
                                     onRequestSaveAsPlaylist(
                                         queue,

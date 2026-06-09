@@ -1575,7 +1575,6 @@ private fun HybridBandSliders(
     frequencies: List<String>,
     onBandLevelChanged: (Int, Int) -> Unit
 ) {
-    val context = LocalContext.current
     val bandBass = stringResource(R.string.presentation_batch_d_eq_band_bass)
     val bandLowMids = stringResource(R.string.presentation_batch_d_eq_band_low_mids)
     val bandHighMids = stringResource(R.string.presentation_batch_d_eq_band_high_mids)
@@ -1633,7 +1632,7 @@ private fun HybridBandSliders(
         } else if (pageCount == 2) {
             listOf(bandBassLow, bandMidHigh)
         } else {
-            (1..pageCount).map { context.getString(R.string.presentation_batch_d_eq_page_n, it) }
+            (1..pageCount).map { stringResource(R.string.presentation_batch_d_eq_page_n, it) }
         }
 
         val pagerState = rememberPagerState(pageCount = { pageCount })

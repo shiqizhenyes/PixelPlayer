@@ -865,6 +865,7 @@ fun CoverArtCropperDialog(
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var containerSize by remember { mutableStateOf(0f) }
+    val unableToLoadImageText = stringResource(R.string.edit_song_unable_to_load_image)
 
     LaunchedEffect(sourceUri) {
         isLoading = true
@@ -873,7 +874,7 @@ fun CoverArtCropperDialog(
         if (bitmap != null) {
             loadedBitmap = bitmap.asImageBitmap()
         } else {
-            loadError = context.getString(R.string.edit_song_unable_to_load_image)
+            loadError = unableToLoadImageText
         }
         isLoading = false
         scale = 1f

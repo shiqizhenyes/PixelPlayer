@@ -191,6 +191,22 @@ fun SettingsCategoryScreen(
 ) {
     val category = SettingsCategory.fromId(categoryId) ?: return
     val context = LocalContext.current
+
+    // Hoisted string resources (for use inside lambdas/callbacks)
+    val toastLibrarySyncFinished = stringResource(R.string.toast_library_sync_finished)
+    val syncFullRescanLabel = stringResource(R.string.setcat_sync_full_rescan_label)
+    val toastFullRescanStarted = stringResource(R.string.toast_full_rescan_started)
+    val toastBatteryAlreadyDisabled = stringResource(R.string.toast_battery_already_disabled)
+    val toastBatterySettingsUnavailable = stringResource(R.string.toast_battery_settings_unavailable)
+    val dialogPaletteRegeneratedFormat = stringResource(R.string.dialog_palette_regenerated)
+    val dialogPaletteRegenerateFailedFormat = stringResource(R.string.dialog_palette_regenerate_failed)
+    val toastRegeneratedPalettesAllFormat = stringResource(R.string.toast_regenerated_palettes_all)
+    val toastRegeneratedPalettesPartialFormat = stringResource(R.string.toast_regenerated_palettes_partial)
+    val syncIndicatorRebuilding = stringResource(R.string.sync_indicator_rebuilding)
+    val toastRebuildingDatabase = stringResource(R.string.toast_rebuilding_database)
+    val toastDailyMixRegenerationStarted = stringResource(R.string.toast_daily_mix_regeneration_started)
+    val toastStatsRegenerationStarted = stringResource(R.string.toast_stats_regeneration_started)
+    val backupFileNameFormat = stringResource(R.string.backup_file_name_format)
     
     // State Collection (Duplicated from SettingsScreen for now to ensure functionality)
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
@@ -265,7 +281,7 @@ fun SettingsCategoryScreen(
         if (isSyncing) {
             syncRequestObservedRunning = true
         } else if (syncRequestObservedRunning) {
-            Toast.makeText(context, context.getString(R.string.toast_library_sync_finished), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, toastLibrarySyncFinished, Toast.LENGTH_SHORT).show()
             refreshRequested = false
             syncRequestObservedRunning = false
             syncIndicatorLabel = null
@@ -474,8 +490,8 @@ fun SettingsCategoryScreen(
                                         if (isSyncing) return@RefreshLibraryItem
                                         refreshRequested = true
                                         syncRequestObservedRunning = false
-                                        syncIndicatorLabel = context.getString(R.string.setcat_sync_full_rescan_label)
-                                        Toast.makeText(context, context.getString(R.string.toast_full_rescan_started), Toast.LENGTH_SHORT).show()
+                                        syncIndicatorLabel = syncFullRescanLabel
+                                        Toast.makeText(context, toastFullRescanStarted, Toast.LENGTH_SHORT).show()
                                         settingsViewModel.fullSyncLibrary()
                                     },
                                     onRebuild = {
@@ -734,7 +750,7 @@ fun SettingsCategoryScreen(
                                     onClick = {
                                         val powerManager = context.getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
                                         if (powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                                            Toast.makeText(context, context.getString(R.string.toast_battery_already_disabled), Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, toastBatteryAlreadyDisabled, Toast.LENGTH_SHORT).show()
                                             return@SettingsItem
                                         }
                                         try {
@@ -747,7 +763,7 @@ fun SettingsCategoryScreen(
                                                 val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                                                 context.startActivity(fallbackIntent)
                                             } catch (e2: Exception) {
-                                                Toast.makeText(context, context.getString(R.string.toast_battery_settings_unavailable), Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, toastBatterySettingsUnavailable, Toast.LENGTH_SHORT).show()
                                             }
                                         }
                                     },
@@ -1339,13 +1355,13 @@ fun SettingsCategoryScreen(
                             paletteSongSearchQuery = ""
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.dialog_palette_regenerated, song.title),
+                                dialogPaletteRegeneratedFormat.format(song.title),
                                 Toast.LENGTH_SHORT
                             ).show()
                         } else {
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.dialog_palette_regenerate_failed, song.title),
+                                dialogPaletteRegenerateFailedFormat.format(song.title),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -1450,9 +1466,9 @@ fun SettingsCategoryScreen(
                                 Toast.makeText(
                                     context,
                                     if (successCount == totalCount) {
-                                        context.getString(R.string.toast_regenerated_palettes_all, successCount)
+                                        toastRegeneratedPalettesAllFormat.format(successCount)
                                     } else {
-                                        context.getString(R.string.toast_regenerated_palettes_partial, successCount, totalCount)
+                                        toastRegeneratedPalettesPartialFormat.format(successCount, totalCount)
                                     },
                                     Toast.LENGTH_LONG
                                 ).show()
@@ -1489,6 +1505,8 @@ fun SettingsCategoryScreen(
 
     
     if (showRebuildDatabaseWarning) {
+        val syncIndicatorRebuilding = stringResource(R.string.sync_indicator_rebuilding)
+        val toastRebuildingDatabase = stringResource(R.string.toast_rebuilding_database)
         AlertDialog(
             icon = { Icon(Icons.Outlined.Warning, null, tint = MaterialTheme.colorScheme.error) },
             title = { Text(stringResource(R.string.dialog_rebuild_database_title)) },
@@ -1500,8 +1518,8 @@ fun SettingsCategoryScreen(
                         showRebuildDatabaseWarning = false
                         refreshRequested = true
                         syncRequestObservedRunning = false
-                        syncIndicatorLabel = context.getString(R.string.sync_indicator_rebuilding)
-                        Toast.makeText(context, context.getString(R.string.toast_rebuilding_database), Toast.LENGTH_SHORT).show()
+                        syncIndicatorLabel = syncIndicatorRebuilding
+                        Toast.makeText(context, toastRebuildingDatabase, Toast.LENGTH_SHORT).show()
                         settingsViewModel.rebuildDatabase() 
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
@@ -1514,6 +1532,7 @@ fun SettingsCategoryScreen(
     }
 
     if (showRegenerateDailyMixDialog) {
+        val toastDailyMixRegenerationStarted = stringResource(R.string.toast_daily_mix_regeneration_started)
         AlertDialog(
             icon = { Icon(painterResource(R.drawable.rounded_instant_mix_24), null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text(stringResource(R.string.dialog_regenerate_daily_mix_title)) },
@@ -1524,7 +1543,7 @@ fun SettingsCategoryScreen(
                     onClick = {
                         showRegenerateDailyMixDialog = false
                         playerViewModel.forceUpdateDailyMix()
-                        Toast.makeText(context, context.getString(R.string.toast_daily_mix_regeneration_started), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, toastDailyMixRegenerationStarted, Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Text(stringResource(R.string.dialog_regenerate), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1535,6 +1554,7 @@ fun SettingsCategoryScreen(
     }
 
     if (showRegenerateStatsDialog) {
+        val toastStatsRegenerationStarted = stringResource(R.string.toast_stats_regeneration_started)
         AlertDialog(
             icon = { Icon(painterResource(R.drawable.rounded_monitoring_24), null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text(stringResource(R.string.dialog_regenerate_stats_title)) },
@@ -1545,7 +1565,7 @@ fun SettingsCategoryScreen(
                     onClick = {
                         showRegenerateStatsDialog = false
                         statsViewModel.forceRegenerateStats()
-                        Toast.makeText(context, context.getString(R.string.toast_stats_regeneration_started), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, toastStatsRegenerationStarted, Toast.LENGTH_SHORT).show()
                     }
                 ) {
                     Text(stringResource(R.string.dialog_regenerate), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1556,6 +1576,7 @@ fun SettingsCategoryScreen(
     }
 
     if (showExportDataDialog) {
+        val backupFileNameFormat = stringResource(R.string.backup_file_name_format)
         BackupSectionSelectionDialog(
             operation = BackupOperationType.EXPORT,
             title = stringResource(R.string.setcat_export_backup_title),
@@ -1567,7 +1588,7 @@ fun SettingsCategoryScreen(
             onSelectionChanged = { exportSections = it },
             onConfirm = {
                 showExportDataDialog = false
-                val fileName = context.getString(R.string.backup_file_name_format, System.currentTimeMillis())
+                val fileName = backupFileNameFormat.format(System.currentTimeMillis())
                 exportLauncher.launch(fileName)
             }
         )

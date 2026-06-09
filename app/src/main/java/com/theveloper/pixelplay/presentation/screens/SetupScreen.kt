@@ -1632,6 +1632,7 @@ private fun SetupRestoreDialog(
     onConfirm: () -> Unit
 ) {
     val context = LocalContext.current
+    val unknownVersion = stringResource(R.string.unknown_version)
     val dateText = remember(plan.manifest.createdAt) {
         SimpleDateFormat("MMM d, yyyy 'at' h:mm a", Locale.getDefault())
             .format(Date(plan.manifest.createdAt))
@@ -1745,7 +1746,7 @@ private fun SetupRestoreDialog(
                             Text(
                                 text = stringResource(
                                     R.string.setup_backup_from_version,
-                                    plan.manifest.appVersion.ifEmpty { context.getString(R.string.unknown_version) }
+                                    plan.manifest.appVersion.ifEmpty { unknownVersion }
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
