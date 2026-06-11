@@ -333,14 +333,6 @@ fun QueueBottomSheet(
     val displaySongsSignature = remember(displaySongs, queueIndexOffset) {
         (queueIndexOffset * 31) + System.identityHashCode(displaySongs)
     }
-    val activeKeys = reorderPreviewKeys
-        ?: committedDisplayKeys.takeIf { it.size == displaySongCount }
-    val activeSongSource = reorderPreviewBaseQueue ?: queue
-    fun activeQueueIndexAt(index: Int): Int =
-        reorderPreviewOrder?.getOrNull(index) ?: (queueIndexOffset + index)
-
-    fun activeKeyAt(index: Int): Long =
-        activeKeys?.getOrNull(index) ?: (queueIndexOffset + index).toLong()
 
     // --- REORDER STATE ---
     var lastMovedFrom by remember { mutableStateOf<Int?>(null) }
@@ -348,24 +340,52 @@ fun QueueBottomSheet(
     var reorderHandleInUse by remember { mutableStateOf(false) }
     val updatedReorderHandleInUse by rememberUpdatedState(reorderHandleInUse)
 
-    val shouldMapActiveKeys = reorderHandleInUse || reorderPreviewOrder != null
-    val activeKeyToLocalIndex = remember(
-        activeKeys,
-        displaySongCount,
-        queueIndexOffset,
-        shouldMapActiveKeys
-    ) {
-        if (!shouldMapActiveKeys) {
-            emptyMap()
-        } else {
-            HashMap<Long, Int>(displaySongCount).apply {
+    val reorderableState = rememberReorderableLazyListState(
+        lazyListState = listState,
+        onMove = { from, to ->
+            if (reorderPreviewOrder == null) {
+                reorderPreviewBaseQueue = queue
+            }
+            val currentOrder = reorderPreviewOrder
+                ?: List(displaySongCount) { queueIndexOffset + it }
+            val currentKeys = reorderPreviewKeys
+                ?: committedDisplayKeys.takeIf { it.size == displaySongCount }
+                ?: List(displaySongCount) { (queueIndexOffset + it).toLong() }
+
+            val keyToLocalIndex = HashMap<Long, Int>(displaySongCount).apply {
                 for (index in 0 until displaySongCount) {
-                    val stableKey = activeKeys?.getOrNull(index) ?: (queueIndexOffset + index).toLong()
+                    val stableKey = currentKeys.getOrNull(index) ?: (queueIndexOffset + index).toLong()
                     put(stableKey, index)
                 }
             }
-        }
+
+            fun resolveKeyToIndex(key: Any?): Int? {
+                val stableKey = key as? Long ?: return null
+                keyToLocalIndex[stableKey]?.let { return it }
+                val defaultIndex = (stableKey - queueIndexOffset).toInt()
+                return defaultIndex.takeIf { it in 0 until displaySongCount }
+            }
+
+            val fromLocalIndex = resolveKeyToIndex(from.key) ?: return@rememberReorderableLazyListState
+            val toLocalIndex = resolveKeyToIndex(to.key) ?: return@rememberReorderableLazyListState
+            if (fromLocalIndex == toLocalIndex) return@rememberReorderableLazyListState
+
+            reorderPreviewOrder = currentOrder.toMutableList().apply {
+                add(toLocalIndex, removeAt(fromLocalIndex))
+            }
+            reorderPreviewKeys = currentKeys.toMutableList().apply {
+                add(toLocalIndex, removeAt(fromLocalIndex))
+            }
+            if (lastMovedFrom == null) {
+                lastMovedFrom = fromLocalIndex
+            }
+            lastMovedTo = toLocalIndex
+        },
+    )
+    val isReordering by remember {
+        derivedStateOf { reorderableState.isAnyItemDragging }
     }
+    val updatedIsReordering by rememberUpdatedState(isReordering)
 
     fun remapCommittedKeysForDisplay(newSongs: List<Song>) {
         // Fast path: common queue-skip case where display list is just a suffix of previous display list.
@@ -416,8 +436,9 @@ fun QueueBottomSheet(
     }
 
     // Reset local reorder preview only when the queue truly changes to something new.
-    LaunchedEffect(displaySongsSignature, queueIndexOffset) {
+    if (reorderPreviewQueueSignature != displaySongsSignature) {
         val expectedIds = pendingReorderExpectedIds
+        var isProcessed = false
 
         if (expectedIds != null) {
             val currentDisplayIds = displaySongs.map { it.id }
@@ -435,74 +456,31 @@ fun QueueBottomSheet(
                 pendingReorderGraceUpdates = 0
                 remapCommittedKeysForDisplay(displaySongs)
                 reorderPreviewQueueSignature = displaySongsSignature
-                return@LaunchedEffect
-            }
-
-            if (reorderPreviewOrder != null && pendingReorderGraceUpdates > 0) {
+                isProcessed = true
+            } else if (reorderPreviewOrder != null && pendingReorderGraceUpdates > 0) {
                 pendingReorderGraceUpdates -= 1
                 reorderPreviewQueueSignature = displaySongsSignature
-                return@LaunchedEffect
+                isProcessed = true
+            } else {
+                pendingReorderExpectedIds = null
+                pendingReorderGraceUpdates = 0
+                reorderPreviewOrder = null
+                reorderPreviewKeys = null
+                reorderPreviewBaseQueue = null
             }
-
-            pendingReorderExpectedIds = null
-            pendingReorderGraceUpdates = 0
-            reorderPreviewOrder = null
-            reorderPreviewKeys = null
-            reorderPreviewBaseQueue = null
         }
 
-        if (reorderPreviewQueueSignature != null && reorderPreviewQueueSignature != displaySongsSignature) {
-            // Queue data changed from external source - safe to clear preview
-            reorderPreviewOrder = null
-            reorderPreviewKeys = null
-            reorderPreviewBaseQueue = null
+        if (!isProcessed) {
+            if (reorderPreviewQueueSignature != null) {
+                // Queue data changed from external source - safe to clear preview
+                reorderPreviewOrder = null
+                reorderPreviewKeys = null
+                reorderPreviewBaseQueue = null
+            }
+            remapCommittedKeysForDisplay(displaySongs)
+            reorderPreviewQueueSignature = displaySongsSignature
         }
-        remapCommittedKeysForDisplay(displaySongs)
-        reorderPreviewQueueSignature = displaySongsSignature
     }
-
-    fun mapKeyToLocalIndex(key: Any?, keyToLocalIndex: Map<Long, Int>): Int? {
-        val stableKey = key as? Long ?: return null
-        keyToLocalIndex[stableKey]?.let { return it }
-        activeKeys?.let { keys ->
-            return keys.indexOf(stableKey).takeIf { it >= 0 }
-        }
-        val defaultIndex = (stableKey - queueIndexOffset).toInt()
-        return defaultIndex.takeIf { it in 0 until displaySongCount }
-    }
-
-    val reorderableState = rememberReorderableLazyListState(
-        lazyListState = listState,
-        onMove = { from, to ->
-            if (reorderPreviewOrder == null) {
-                reorderPreviewBaseQueue = queue
-            }
-            val currentOrder = reorderPreviewOrder
-                ?: List(displaySongCount) { queueIndexOffset + it }
-            val currentKeys = reorderPreviewKeys
-                ?: List(displaySongCount) { activeKeyAt(it) }
-
-            val fromLocalIndex = mapKeyToLocalIndex(from.key, activeKeyToLocalIndex) ?: return@rememberReorderableLazyListState
-            val toLocalIndex = mapKeyToLocalIndex(to.key, activeKeyToLocalIndex) ?: return@rememberReorderableLazyListState
-            if (fromLocalIndex == toLocalIndex) return@rememberReorderableLazyListState
-
-            reorderPreviewOrder = currentOrder.toMutableList().apply {
-                add(toLocalIndex, removeAt(fromLocalIndex))
-            }
-            reorderPreviewKeys = currentKeys.toMutableList().apply {
-                add(toLocalIndex, removeAt(fromLocalIndex))
-            }
-            if (lastMovedFrom == null) {
-                lastMovedFrom = fromLocalIndex
-            }
-            lastMovedTo = toLocalIndex
-        },
-    )
-    val isReordering by remember {
-        derivedStateOf { reorderableState.isAnyItemDragging }
-    }
-    val updatedIsReordering by rememberUpdatedState(isReordering)
-    // ----------------------
 
     // Only jump to current song when the actual current song changes (e.g. track skip).
     // This prevents annoying jumps when adding/removing other items in the queue.
@@ -539,44 +517,61 @@ fun QueueBottomSheet(
     val updatedOnQueueDrag by rememberUpdatedState(onQueueDrag)
     val updatedOnQueueRelease by rememberUpdatedState(onQueueRelease)
 
-    LaunchedEffect(reorderableState.isAnyItemDragging) {
-        if (!reorderableState.isAnyItemDragging) {
-            val fromIndex = lastMovedFrom
-            val toIndex = lastMovedTo
+    val isAnyItemDragging = reorderableState.isAnyItemDragging
+    var wasDragging by remember { mutableStateOf(false) }
 
-            lastMovedFrom = null
-            lastMovedTo = null
+    if (wasDragging && !isAnyItemDragging) {
+        wasDragging = false
+        val fromIndex = lastMovedFrom
+        val toIndex = lastMovedTo
 
-            if (fromIndex != null && toIndex != null) {
-                // Convert display indices to queue indices by adding the offset
-                val fromQueueIndex = fromIndex + queueIndexOffset
-                val toQueueIndex = toIndex + queueIndexOffset
+        lastMovedFrom = null
+        lastMovedTo = null
 
-                val fromWithinQueue = fromQueueIndex in queue.indices
-                val toWithinQueue = toQueueIndex in queue.indices
+        if (fromIndex != null && toIndex != null) {
+            // Convert display indices to queue indices by adding the offset
+            val fromQueueIndex = fromIndex + queueIndexOffset
+            val toQueueIndex = toIndex + queueIndexOffset
 
-                if (fromWithinQueue && toWithinQueue && fromQueueIndex != toQueueIndex) {
-                    val previewBase = reorderPreviewBaseQueue ?: queue
-                    val expectedIds = reorderPreviewOrder
-                        ?.mapNotNull { previewBase.getOrNull(it)?.id }
-                        ?.takeIf { it.size == displaySongCount }
-                    pendingReorderExpectedIds = expectedIds
-                    pendingReorderGraceUpdates = if (expectedIds != null) 6 else 0
-                    // Keep reorderPreviewOrder alive so items don't snap back
-                    // while we wait for the new queue data to propagate.
-                    onReorder(fromQueueIndex, toQueueIndex)
-                    return@LaunchedEffect
-                }
+            val fromWithinQueue = fromQueueIndex in queue.indices
+            val toWithinQueue = toQueueIndex in queue.indices
+
+            if (fromWithinQueue && toWithinQueue && fromQueueIndex != toQueueIndex) {
+                val previewBase = reorderPreviewBaseQueue ?: queue
+                val expectedIds = reorderPreviewOrder
+                    ?.mapNotNull { previewBase.getOrNull(it)?.id }
+                    ?.takeIf { it.size == displaySongCount }
+                pendingReorderExpectedIds = expectedIds
+                pendingReorderGraceUpdates = if (expectedIds != null) 6 else 0
+                // Keep reorderPreviewOrder alive so items don't snap back
+                // while we wait for the new queue data to propagate.
+                onReorder(fromQueueIndex, toQueueIndex)
+            } else {
+                reorderPreviewOrder = null
+                reorderPreviewKeys = null
+                reorderPreviewBaseQueue = null
+                pendingReorderExpectedIds = null
+                pendingReorderGraceUpdates = 0
             }
-
-            // Only clear preview if no valid reorder was dispatched
+        } else {
             reorderPreviewOrder = null
             reorderPreviewKeys = null
             reorderPreviewBaseQueue = null
             pendingReorderExpectedIds = null
             pendingReorderGraceUpdates = 0
         }
+    } else if (isAnyItemDragging) {
+        wasDragging = true
     }
+
+    val activeKeys = reorderPreviewKeys
+        ?: committedDisplayKeys.takeIf { it.size == displaySongCount }
+    val activeSongSource = reorderPreviewBaseQueue ?: queue
+    fun activeQueueIndexAt(index: Int): Int =
+        reorderPreviewOrder?.getOrNull(index) ?: (queueIndexOffset + index)
+
+    fun activeKeyAt(index: Int): Long =
+        activeKeys?.getOrNull(index) ?: (queueIndexOffset + index).toLong()
 
     val useLightweightQueueListShape by remember {
         derivedStateOf {

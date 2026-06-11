@@ -1,0 +1,45 @@
+---
+sourceLocationPrefix: /home/dae/VZ_Dev/work/PixelPlayer/app
+baselineLinesOfCode: 165602
+unicodeNewlines: false
+columnKind: utf16
+primaryLanguage: java
+inProgress:
+  primaryLanguage: java
+  installedExtractors:
+    swift:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/swift
+    rust:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/rust
+    ruby:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/ruby
+    python:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/python
+    yaml:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/yaml
+    javascript:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/javascript
+    xml:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/xml
+    java:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/java
+    properties:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/properties
+    go:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/go
+    html:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/html
+    csv:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/csv
+    csharp:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/csharp
+    cpp:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/cpp
+    actions:
+     - /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/actions
+creationMetadata:
+  cliVersion: 2.25.6
+  creationTime: 2026-06-10T23:21:33.140782814Z
+overlayBaseDatabase: false
+overlayDatabase: false
+finalised: false

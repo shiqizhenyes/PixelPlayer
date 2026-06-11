@@ -1,0 +1,15 @@
+[T 23:21:33 207591] CodeQL CLI version 2.25.6
+[T 23:21:33 207591] Initializing tracer.
+[T 23:21:33 207591] Initializing tags.
+[T 23:21:33 207591] ID set to 0000000000032AE7_0000000000000001 (parent root)
+[T 23:21:33 207591] Initializing tracer.
+[T 23:21:33 207591] Initializing tags.
+[T 23:21:33 207591] ID set to 0000000000032AE7_0000000000000002 (parent root)
+[T 23:21:33 207591] Warning: SEMMLE_EXEC and SEMMLE_EXECP not set. Falling back to path lookup on argv[0].
+[T 23:21:33 207591] ==== Candidate to intercept: /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/tools/linux64/runner-linux (canonical: /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/tools/linux64/runner-linux) ====
+[T 23:21:33 207591] Lua: === Intercepted call to /home/dae/VZ_Dev/work/PixelPlayer/.codeql/cli/tools/linux64/runner-linux ===
+[T 23:21:33 207591] Executing the following tracer actions:
+[T 23:21:33 207591] Tracer actions:
+[T 23:21:33 207591] pre_invocations(0)
+[T 23:21:33 207591] post_invocations(0)
+[T 23:21:33 207591] trace_languages(1): [java]

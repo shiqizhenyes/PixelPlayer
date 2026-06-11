@@ -1,0 +1,2 @@
+{"timestamp":"2026-06-10T18:21:33.120982984-05:00","source":{"id":"cli/file-coverage-baseline","name":"File coverage baseline telemetry"},"visibility":{"cliSummaryTable":false,"statusPage":false,"telemetry":true},"attributes":{"durationMilliseconds":143}}
+{"timestamp":"2026-06-10T18:21:33.124440252-05:00","source":{"id":"cli/platform","name":"Platform"},"visibility":{"cliSummaryTable":false,"statusPage":false,"telemetry":true},"attributes":{"version":"7.0.11-1-cachyos-eevdf-lto","arch":"amd64","name":"Linux"}}
