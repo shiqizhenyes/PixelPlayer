@@ -336,7 +336,7 @@ fun ExternalPlayerOverlay(
                         ) {
                             Text(
                                 modifier = Modifier.padding(vertical = 10.dp),
-                                text = stringResource(id = R.string.open_full_player),
+                                text = stringResource(id = R.string.external_action_open_full_player),
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }

@@ -234,7 +234,7 @@ fun SongPickerContent(
                     ) {
                         Icon(
                             Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.cd_confirm_add_songs),
+                            contentDescription = stringResource(R.string.song_picker_cd_confirm_add_songs),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -507,7 +507,7 @@ fun SongPickerPagingList(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Button(onClick = { pagedSongs.retry() }) {
-                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.library_action_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -716,14 +716,14 @@ fun SongPickerEmptyState(
 ) {
     val spec = when (tabId) {
         LibraryTabId.LIKED -> when (storageFilter) {
-            StorageFilter.ALL -> Triple(R.drawable.round_favorite_24, R.string.lib_empty_liked_all_title, R.string.lib_empty_liked_all_subtitle)
-            StorageFilter.OFFLINE -> Triple(R.drawable.round_favorite_24, R.string.lib_empty_liked_offline_title, R.string.lib_empty_liked_offline_subtitle)
-            StorageFilter.ONLINE -> Triple(R.drawable.round_favorite_24, R.string.lib_empty_liked_online_title, R.string.lib_empty_liked_online_subtitle)
+            StorageFilter.ALL -> Triple(R.drawable.round_favorite_24, R.string.library_empty_liked_all_title, R.string.library_empty_liked_all_subtitle)
+            StorageFilter.OFFLINE -> Triple(R.drawable.round_favorite_24, R.string.library_empty_liked_offline_title, R.string.library_empty_liked_offline_subtitle)
+            StorageFilter.ONLINE -> Triple(R.drawable.round_favorite_24, R.string.library_empty_liked_online_title, R.string.library_empty_liked_online_subtitle)
         }
         else -> when (storageFilter) {
-            StorageFilter.ALL -> Triple(R.drawable.rounded_music_off_24, R.string.lib_empty_songs_all_title, R.string.lib_empty_songs_all_subtitle)
-            StorageFilter.OFFLINE -> Triple(R.drawable.rounded_music_off_24, R.string.lib_empty_songs_offline_title, R.string.lib_empty_songs_offline_subtitle)
-            StorageFilter.ONLINE -> Triple(R.drawable.rounded_music_off_24, R.string.lib_empty_songs_online_title, R.string.lib_empty_songs_online_subtitle)
+            StorageFilter.ALL -> Triple(R.drawable.rounded_music_off_24, R.string.library_empty_songs_all_title, R.string.library_empty_songs_all_subtitle)
+            StorageFilter.OFFLINE -> Triple(R.drawable.rounded_music_off_24, R.string.library_empty_songs_offline_title, R.string.library_empty_songs_offline_subtitle)
+            StorageFilter.ONLINE -> Triple(R.drawable.rounded_music_off_24, R.string.library_empty_songs_online_title, R.string.library_empty_songs_online_subtitle)
         }
     }
 

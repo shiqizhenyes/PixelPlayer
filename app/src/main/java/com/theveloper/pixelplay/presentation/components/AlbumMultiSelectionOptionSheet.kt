@@ -88,7 +88,7 @@ fun AlbumMultiSelectionOptionSheet(
 
                 Column {
                     AutoSizingTextToFill(
-                        text = stringResource(R.string.presentation_batch_g_album_sel_count, selectedAlbums.size),
+                        text = stringResource(R.string.multi_selection_albums_count_upper, selectedAlbums.size),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         fontFamily = GoogleSansRounded,
@@ -98,7 +98,7 @@ fun AlbumMultiSelectionOptionSheet(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = stringResource(R.string.presentation_batch_g_album_sel_selected),
+                        text = stringResource(R.string.multi_selection_albums_selected),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = GoogleSansRounded,
@@ -111,12 +111,12 @@ fun AlbumMultiSelectionOptionSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = stringResource(R.string.presentation_batch_g_album_sel_queue_hint),
+                text = stringResource(R.string.multi_selection_albums_queue_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = stringResource(R.string.presentation_batch_g_album_sel_limit, maxSelection),
+                text = stringResource(R.string.multi_selection_albums_selected_limit, maxSelection),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -145,10 +145,10 @@ fun AlbumMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = "Play selected albums"
+                            contentDescription = stringResource(R.string.song_info_cd_play_all)
                         )
                     },
-                    text = "Play"
+                    text = stringResource(R.string.song_info_action_play),
                 )
 
                 AlbumSelectionActionButton(
@@ -166,10 +166,10 @@ fun AlbumMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                            contentDescription = "Add selected albums to playlist"
+                            contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
                         )
                     },
-                    text = "Playlist"
+                    text = stringResource(R.string.common_playlist)
                 )
             }
 
@@ -197,10 +197,10 @@ fun AlbumMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                            contentDescription = "Play selected albums next"
+                            contentDescription = stringResource(R.string.song_info_cd_queue_next)
                         )
                     },
-                    text = "Next"
+                    text = stringResource(R.string.song_info_action_queue_next)
                 )
 
                 AlbumSelectionActionButton(
@@ -218,10 +218,10 @@ fun AlbumMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                            contentDescription = "Add selected albums to queue"
+                            contentDescription = stringResource(R.string.song_info_cd_add_to_queue)
                         )
                     },
-                    text = "Add to Queue"
+                    text = stringResource(R.string.song_info_action_add_to_queue)
                 )
             }
 
@@ -253,7 +253,6 @@ private fun AlbumSelectionActionButton(
             overflow = TextOverflow.Ellipsis,
             maxLines = 2,
             lineHeight = 20.sp,
-            style = MaterialTheme.typography.titleMedium
         )
     }
 }

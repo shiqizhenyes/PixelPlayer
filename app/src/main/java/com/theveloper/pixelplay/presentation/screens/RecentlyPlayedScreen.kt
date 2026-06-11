@@ -108,8 +108,8 @@ fun RecentlyPlayedScreen(
     Trace.beginSection("RecentlyPlayedScreen.Composition")
 
     val context = LocalContext.current
-    val queueRecentlyPlayed = stringResource(R.string.presentation_batch_b_queue_recently_played)
-    val shuffleLabel = stringResource(R.string.shortcut_shuffle_short)
+    val queueRecentlyPlayed = stringResource(R.string.recently_played_queue_name)
+    val shuffleLabel = stringResource(R.string.common_shuffle)
     val playbackHistory by playerViewModel.playbackHistory.collectAsStateWithLifecycle()
     val currentSongId by remember(playerViewModel.stablePlayerState) {
         playerViewModel.stablePlayerState.map { it.currentSong?.id }.distinctUntilChanged()
@@ -198,7 +198,7 @@ fun RecentlyPlayedScreen(
             ) {
                 item(key = "recently_played_header") {
                     ExpressiveRecentlyPlayedHeader(
-                        title = stringResource(R.string.presentation_batch_b_recently_played_title),
+                        title = stringResource(R.string.recently_played_title),
                         songs = recentlyPlayedSongs,
                         selectedRange = selectedRange,
                         scrollState = lazyListState
@@ -365,7 +365,7 @@ fun RecentlyPlayedScreen(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                contentDescription = stringResource(R.string.auth_cd_back)
+                contentDescription = stringResource(R.string.common_back)
             )
         }
     }
@@ -513,7 +513,7 @@ private fun RecentlyPlayedActions(
             )
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             TightWrapText(
-                text = stringResource(R.string.presentation_batch_b_play_latest),
+                text = stringResource(R.string.recently_played_action_play_latest),
                 modifier = Modifier.padding(end = 4.dp),
                 overflow = TextOverflow.Ellipsis,
                 maxLines = 2,
@@ -663,14 +663,14 @@ private fun RecentlyPlayedEmptyState(
         ) {
             Text(
                 text = stringResource(
-                    R.string.presentation_batch_b_recent_empty_title,
+                    R.string.recently_played_empty_title,
                     range.displayName.lowercase()
                 ),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = stringResource(R.string.presentation_batch_b_recent_empty_subtitle),
+                text = stringResource(R.string.recently_played_empty_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -777,14 +777,14 @@ private fun resolveTimestampBucket(
         date == nowDate -> {
             TimestampBucket(
                 key = date.toString(),
-                label = context.getString(R.string.presentation_batch_b_date_today),
+                label = context.getString(R.string.recently_played_date_today),
                 isHourBucket = false
             )
         }
         date == nowDate.minusDays(1) -> {
             TimestampBucket(
                 key = date.toString(),
-                label = context.getString(R.string.presentation_batch_b_date_yesterday),
+                label = context.getString(R.string.recently_played_date_yesterday),
                 isHourBucket = false
             )
         }

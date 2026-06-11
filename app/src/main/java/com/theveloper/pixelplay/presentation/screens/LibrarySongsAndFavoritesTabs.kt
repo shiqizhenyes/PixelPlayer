@@ -349,13 +349,13 @@ fun LibrarySongsTabPaginated(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(R.string.library_error_loading_songs), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        error.localizedMessage ?: stringResource(R.string.error_unknown),
+                        error.localizedMessage ?: stringResource(R.string.common_error_unknown),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = { paginatedSongs.retry() }) {
-                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.library_action_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -371,7 +371,7 @@ fun LibrarySongsTabPaginated(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         painter = painterResource(id = R.drawable.rounded_music_off_24),
-                        contentDescription = stringResource(R.string.cd_no_songs_in_library),
+                        contentDescription = stringResource(R.string.library_cd_no_songs_in_library),
                         modifier = Modifier.size(48.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )

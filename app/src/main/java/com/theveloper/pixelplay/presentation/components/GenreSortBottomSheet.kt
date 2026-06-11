@@ -76,7 +76,7 @@ fun GenreSortBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(R.string.presentation_batch_g_genre_sort_title),
+                    text = stringResource(R.string.genre_sort_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -100,7 +100,7 @@ fun GenreSortBottomSheet(
                     Icon(Icons.Rounded.Shuffle, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     TightWrapText(
-                        text = stringResource(R.string.presentation_batch_g_genre_sort_shuffle),
+                        text = stringResource(R.string.genre_sort_action_shuffle),
                         modifier = Modifier.padding(end = 4.dp),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
@@ -119,7 +119,7 @@ fun GenreSortBottomSheet(
             Spacer(modifier = Modifier.height(32.dp))
             
             Text(
-                text = stringResource(R.string.presentation_batch_g_genre_sort_by),
+                text = stringResource(R.string.genre_sort_by_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Bold,
@@ -129,19 +129,19 @@ fun GenreSortBottomSheet(
             // Expressive Sort Options (Cards instead of simple rows)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SortOptionCard(
-                    text = stringResource(R.string.presentation_batch_g_genre_sort_artist),
+                    text = stringResource(R.string.genre_sort_artist_option),
                     icon = Icons.Rounded.Person,
                     isSelected = currentSort == SortOption.ARTIST,
                     onClick = { onSortSelected(SortOption.ARTIST) }
                 )
                 SortOptionCard(
-                    text = stringResource(R.string.presentation_batch_g_genre_sort_album),
+                    text = stringResource(R.string.genre_sort_album_option),
                     icon = Icons.Rounded.Album,
                     isSelected = currentSort == SortOption.ALBUM,
                     onClick = { onSortSelected(SortOption.ALBUM) }
                 )
                 SortOptionCard(
-                    text = stringResource(R.string.presentation_batch_g_genre_sort_title_opt),
+                    text = stringResource(R.string.genre_sort_title_option),
                     icon = Icons.Rounded.SortByAlpha,
                     isSelected = currentSort == SortOption.TITLE,
                     onClick = { onSortSelected(SortOption.TITLE) }
@@ -192,7 +192,7 @@ fun SortOptionCard(
             if (isSelected) {
                 Icon(
                     imageVector = Icons.Rounded.Check,
-                    contentDescription = stringResource(R.string.presentation_batch_g_cd_selected),
+                    contentDescription = stringResource(R.string.common_selected),
                     tint = contentColor
                 )
             }

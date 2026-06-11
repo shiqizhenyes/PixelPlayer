@@ -90,7 +90,7 @@ fun GenreMultiSelectionOptionSheet(
 
                 Column {
                     AutoSizingTextToFill(
-                        text = stringResource(R.string.presentation_batch_g_selection_all) + " (${selectedGenres.size})",
+                        text = stringResource(R.string.multi_selection_genres_count_upper, selectedGenres.size),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         fontFamily = GoogleSansRounded,
@@ -100,7 +100,7 @@ fun GenreMultiSelectionOptionSheet(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = "Genres Selected",
+                        text = stringResource(R.string.multi_selection_genres_selected),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontFamily = GoogleSansRounded,
@@ -113,7 +113,7 @@ fun GenreMultiSelectionOptionSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "Perform batch operations on all songs within these genres.",
+                text = stringResource(R.string.multi_selection_genres_queue_hint),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -142,10 +142,10 @@ fun GenreMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = "Play selected genres"
+                            contentDescription = stringResource(R.string.song_info_cd_play_all)
                         )
                     },
-                    text = "Play"
+                    text = stringResource(R.string.song_info_action_play)
                 )
 
                 GenreSelectionActionButton(
@@ -163,10 +163,10 @@ fun GenreMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                            contentDescription = "Add selected genres to playlist"
+                            contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
                         )
                     },
-                    text = "Playlist"
+                    text = stringResource(R.string.common_playlist)
                 )
             }
 
@@ -194,10 +194,10 @@ fun GenreMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.QueueMusic,
-                            contentDescription = "Play selected genres next"
+                            contentDescription = stringResource(R.string.song_info_cd_queue_next)
                         )
                     },
-                    text = "Next"
+                    text = stringResource(R.string.song_info_action_queue_next)
                 )
 
                 GenreSelectionActionButton(
@@ -215,10 +215,10 @@ fun GenreMultiSelectionOptionSheet(
                     icon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                            contentDescription = "Add selected genres to queue"
+                            contentDescription = stringResource(R.string.song_info_cd_add_to_queue)
                         )
                     },
-                    text = "Add to Queue"
+                    text = stringResource(R.string.song_info_action_add_to_queue)
                 )
             }
 
@@ -250,7 +250,6 @@ private fun GenreSelectionActionButton(
             overflow = TextOverflow.Ellipsis,
             maxLines = 2,
             lineHeight = 20.sp,
-            style = MaterialTheme.typography.titleMedium
         )
     }
 }

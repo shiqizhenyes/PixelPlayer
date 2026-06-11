@@ -477,7 +477,7 @@ class MetadataEditStateHolder @Inject constructor(
     fun saveLyricsToFile(song: Song, lyrics: Lyrics, preferSynced: Boolean, cb: MetadataEditCallbacks) {
         val lrcContent = LyricsUtils.toLrcString(lyrics, preferSynced)
         if (lrcContent.isEmpty()) {
-            cb.sendToast(context.getString(R.string.no_lyrics_to_save))
+            cb.sendToast(context.getString(R.string.metadata_edit_lyrics_none_to_save))
             return
         }
 
@@ -507,7 +507,7 @@ class MetadataEditStateHolder @Inject constructor(
         if (batchMetadata != null) {
             pendingBatchMetadataEdit = null
             if (!granted) {
-                cb.sendToast(context.getString(R.string.player_permission_denied_edit_files))
+                cb.sendToast(context.getString(R.string.metadata_edit_permission_denied_edit_files))
                 return
             }
             cb.scope.launch {
@@ -536,7 +536,7 @@ class MetadataEditStateHolder @Inject constructor(
         if (batchGenre != null) {
             pendingBatchGenreEdit = null
             if (!granted) {
-                cb.sendToast(context.getString(R.string.player_permission_denied_edit_files))
+                cb.sendToast(context.getString(R.string.metadata_edit_permission_denied_edit_files))
                 return
             }
             cb.scope.launch { performBatchEditGenre(batchGenre.first, batchGenre.second, cb) }
@@ -548,7 +548,7 @@ class MetadataEditStateHolder @Inject constructor(
         if (pendingLyrics != null) {
             pendingLyricsSave = null
             if (!granted) {
-                cb.sendToast(context.getString(R.string.player_permission_denied_save_lyrics))
+                cb.sendToast(context.getString(R.string.metadata_edit_permission_denied_save_lyrics))
                 return
             }
             performLyricsSave(pendingLyrics.song, pendingLyrics.lyrics, pendingLyrics.preferSynced, cb)
@@ -559,7 +559,7 @@ class MetadataEditStateHolder @Inject constructor(
         val pending = pendingMetadataEdit ?: return
         pendingMetadataEdit = null
         if (!granted) {
-            cb.sendToast(context.getString(R.string.player_permission_denied_edit_this_file))
+            cb.sendToast(context.getString(R.string.metadata_edit_permission_denied_edit_this_file))
             return
         }
         cb.scope.launch {
@@ -581,7 +581,7 @@ class MetadataEditStateHolder @Inject constructor(
                 val lrcContent = LyricsUtils.toLrcString(lyrics, preferSynced)
 
                 lrcFile.writeText(lrcContent, Charsets.UTF_8)
-                cb.sendToast(context.getString(R.string.lyrics_saved_successfully))
+                cb.sendToast(context.getString(R.string.metadata_edit_lyrics_saved_successfully))
 
                 // If it was the current song, refresh the lyrics in state if it migrated from remote to local
                 if (playbackStateHolder.stablePlayerState.value.currentSong?.id == song.id) {
@@ -589,7 +589,7 @@ class MetadataEditStateHolder @Inject constructor(
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to save lyrics to file")
-                cb.sendToast(context.getString(R.string.lyrics_save_failed))
+                cb.sendToast(context.getString(R.string.metadata_edit_lyrics_save_failed))
             }
         }
     }
@@ -689,7 +689,7 @@ class MetadataEditStateHolder @Inject constructor(
             }
 
             // No need for full library sync - file, MediaStore, and local DB are already updated
-            cb.sendToast(context.getString(R.string.metadata_updated_successfully))
+            cb.sendToast(context.getString(R.string.metadata_edit_updated_successfully))
         } else {
             val errorMessage = result.getUserFriendlyErrorMessage()
             Log.e("PlayerViewModel", "METADATA_EDIT_VM: Failed - ${result.error}: $errorMessage")
@@ -826,7 +826,7 @@ class MetadataEditStateHolder @Inject constructor(
 
     private suspend fun performBatchEditGenre(songs: List<Song>, newGenre: String, cb: MetadataEditCallbacks) {
         Log.d("PlayerViewModel", "Starting batch genre update for ${songs.size} songs to '$newGenre'")
-        cb.sendToast(context.getString(R.string.player_updating_n_songs, songs.size))
+        cb.sendToast(context.getString(R.string.metadata_edit_updating_n_songs, songs.size))
 
         var successCount = 0
         var failCount = 0
@@ -877,9 +877,9 @@ class MetadataEditStateHolder @Inject constructor(
         }
 
         if (failCount == 0) {
-            cb.sendToast(context.getString(R.string.player_batch_genre_updated_all, successCount))
+            cb.sendToast(context.getString(R.string.metadata_edit_batch_genre_updated_all, successCount))
         } else {
-            cb.sendToast(context.getString(R.string.player_batch_genre_updated_partial, successCount, failCount))
+            cb.sendToast(context.getString(R.string.metadata_edit_batch_genre_updated_partial, successCount, failCount))
         }
     }
 

@@ -1423,7 +1423,7 @@ class MusicService : MediaLibraryService() {
                 val currentMediaItem = mediaSession?.player?.currentMediaItem
                 val trackTitle = currentMediaItem?.mediaMetadata?.title?.toString()
                     ?: currentMediaItem?.mediaId
-                    ?: getString(R.string.unknown_song_title)
+                    ?: getString(R.string.common_unknown_track)
                 val errorMessage = error.localizedMessage ?: error.message ?: "Unknown error"
                 val toastMessage = getString(R.string.player_playback_error, "$trackTitle ($errorMessage)")
                 android.widget.Toast.makeText(this@MusicService, toastMessage, android.widget.Toast.LENGTH_LONG).show()

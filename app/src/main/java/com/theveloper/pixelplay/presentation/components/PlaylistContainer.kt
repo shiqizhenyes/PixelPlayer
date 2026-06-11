@@ -32,7 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Topic
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
@@ -43,7 +42,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -67,7 +65,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -80,7 +77,6 @@ import com.theveloper.pixelplay.R
 import com.theveloper.pixelplay.data.model.Playlist
 import com.theveloper.pixelplay.data.model.Song
 import com.theveloper.pixelplay.data.model.SortOption
-import com.theveloper.pixelplay.presentation.components.subcomps.SineWaveLine
 import com.theveloper.pixelplay.presentation.navigation.Screen
 import com.theveloper.pixelplay.presentation.screens.PlayerSheetCollapsedCornerRadius
 import com.theveloper.pixelplay.presentation.viewmodel.PlayerViewModel
@@ -89,7 +85,7 @@ import com.theveloper.pixelplay.presentation.viewmodel.PlaylistSelectionStateHol
 import com.theveloper.pixelplay.utils.formatSongCount
 import com.theveloper.pixelplay.ui.theme.GoogleSansRounded
 import com.theveloper.pixelplay.ui.theme.LocalShowScrollbar
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -127,43 +123,54 @@ fun PlaylistContainer(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.TopCenter
+                    .padding(
+                        start = 28.dp,
+                        end = 28.dp,
+                        bottom = bottomBarHeight + MiniPlayerHeight + 24.dp
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Column(
-                    modifier = Modifier.padding(top = 28.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    SineWaveLine(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp)
-                            .padding(horizontal = 8.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
-                        alpha = 0.95f,
-                        strokeWidth = 3.dp,
-                        amplitude = 4.dp,
-                        waves = 7.6f,
-                        phase = 0f
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Icon(
-                        Icons.AutoMirrored.Rounded.PlaylistPlay,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.presentation_batch_e_no_playlist_created),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        stringResource(R.string.presentation_batch_e_new_playlist_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+                        tonalElevation = 2.dp
+                    ) {
+                        Box(
+                            modifier = Modifier.size(56.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.AutoMirrored.Rounded.PlaylistPlay,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.playlist_container_no_playlist_created),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = stringResource(R.string.playlist_container_new_playlist_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         } else {
@@ -531,7 +538,7 @@ fun PlaylistItem(
                     } else {
                         Icon(
                             imageVector = Icons.Rounded.CheckCircle,
-                            contentDescription = stringResource(R.string.presentation_batch_g_cd_selected),
+                            contentDescription = stringResource(R.string.common_selected),
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(16.dp)
                         )
@@ -574,7 +581,7 @@ fun CreatePlaylistDialogRedesigned(
                     .fillMaxWidth()
             ) {
                 Text(
-                    text = stringResource(R.string.create_playlist_dialog_title),
+                    text = stringResource(R.string.playlist_container_create_playlist_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     fontFamily = GoogleSansRounded,
@@ -584,8 +591,8 @@ fun CreatePlaylistDialogRedesigned(
                 OutlinedTextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    label = { Text(stringResource(R.string.create_playlist_name_label)) },
-                    placeholder = { Text(stringResource(R.string.create_playlist_name_placeholder)) },
+                    label = { Text(stringResource(R.string.playlist_container_create_playlist_name_label)) },
+                    placeholder = { Text(stringResource(R.string.playlist_container_create_playlist_name_placeholder)) },
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -606,7 +613,7 @@ fun CreatePlaylistDialogRedesigned(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(stringResource(R.string.cancel), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.common_cancel), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
 
                     Button(
@@ -619,7 +626,7 @@ fun CreatePlaylistDialogRedesigned(
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
-                        Text(stringResource(R.string.action_create), fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.common_create), fontWeight = FontWeight.Bold)
                     }
                 }
             }

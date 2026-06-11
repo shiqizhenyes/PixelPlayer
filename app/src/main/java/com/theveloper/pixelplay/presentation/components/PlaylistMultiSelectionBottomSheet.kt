@@ -149,7 +149,7 @@ fun PlaylistMultiSelectionBottomSheet(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = stringResource(R.string.multi_selection_selected),
+                            text = stringResource(R.string.multi_selection_songs_selected),
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontFamily = GoogleSansRounded,
@@ -193,11 +193,11 @@ fun PlaylistMultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.Rounded.Delete,
-                                    contentDescription = stringResource(R.string.cd_delete_all_songs)
+                                    contentDescription = stringResource(R.string.song_info_action_delete)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.delete_action),
+                                    text = stringResource(R.string.song_info_action_delete),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,
@@ -222,11 +222,11 @@ fun PlaylistMultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.Rounded.FileDownload,
-                                    contentDescription = stringResource(R.string.cd_export_all)
+                                    contentDescription = stringResource(R.string.common_export_all)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.action_export),
+                                    text = stringResource(R.string.common_export),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,
@@ -262,11 +262,11 @@ fun PlaylistMultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.Rounded.Merge,
-                                    contentDescription = stringResource(R.string.cd_merge_all)
+                                    contentDescription = stringResource(R.string.common_merge_all)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.action_merge),
+                                    text = stringResource(R.string.common_merge),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,
@@ -291,11 +291,11 @@ fun PlaylistMultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.Rounded.Share,
-                                    contentDescription = stringResource(R.string.cd_share_all)
+                                    contentDescription = stringResource(R.string.common_share_all)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.action_share),
+                                    text = stringResource(R.string.common_share),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,

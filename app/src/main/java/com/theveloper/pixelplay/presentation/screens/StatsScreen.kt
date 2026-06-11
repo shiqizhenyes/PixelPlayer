@@ -353,7 +353,7 @@ fun StatsScreen(
                         .padding(bottom = 8.dp) // Reduced padding below tabs
                 ) {
                     CollapsibleCommonTopBar(
-                        title = stringResource(R.string.presentation_batch_g_stats_title),
+                        title = stringResource(R.string.stats_title),
                         collapseFraction = collapseFraction,
                         headerHeight = currentTopBarHeightDp,
                         onBackClick = { navController.popBackStack() },
@@ -371,7 +371,7 @@ fun StatsScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Refresh,
-                                    contentDescription = stringResource(R.string.presentation_batch_g_stats_cd_refresh)
+                                    contentDescription = stringResource(R.string.stats_cd_refresh)
                                 )
                             }
                         }
@@ -408,7 +408,7 @@ private fun StatsHeroSection(
     ) {
         // Time Card - Primary Container
         HeroCard(
-            title = stringResource(R.string.presentation_batch_g_stats_hero_listening),
+            title = stringResource(R.string.stats_hero_listening),
             value = if (hasData) formatListeningDurationCompact(summary?.totalDurationMs ?: 0L) else "--",
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -419,7 +419,7 @@ private fun StatsHeroSection(
 
         // Plays Card - Tertiary Container
         HeroCard(
-            title = stringResource(R.string.presentation_batch_g_stats_hero_plays),
+            title = stringResource(R.string.stats_hero_plays),
             value = if (hasData) "${summary?.totalPlayCount ?: 0}" else "--",
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -592,7 +592,7 @@ private fun SummaryProgressRow(
     progress: Float,
     modifier: Modifier = Modifier
 ) {
-    val displayLabel = label ?: stringResource(R.string.presentation_batch_g_stats_em_dash)
+    val displayLabel = label ?: stringResource(R.string.stats_em_dash)
     val progressValue = progress.coerceIn(0f, 1f)
     Column(
         modifier = modifier
@@ -708,35 +708,35 @@ private fun ListeningHabitsCard(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
-                text = stringResource(R.string.presentation_batch_g_stats_section_listening_habits),
+                text = stringResource(R.string.stats_section_listening_habits),
                 style = MaterialTheme.typography.titleLargeEmphasized,
                 color = MaterialTheme.colorScheme.onSurface
             )
             if (summary == null) {
                 StatsEmptyState(
                     icon = Icons.Outlined.History,
-                    title = stringResource(R.string.presentation_batch_g_stats_empty_no_habits_title),
-                    subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_habits_subtitle)
+                    title = stringResource(R.string.stats_empty_no_habits_title),
+                    subtitle = stringResource(R.string.stats_empty_no_habits_subtitle)
                 )
             } else {
-                val emDash = stringResource(R.string.presentation_batch_g_stats_em_dash)
+                val emDash = stringResource(R.string.stats_em_dash)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     HabitMetric(
                         icon = Icons.Outlined.History,
-                        label = stringResource(R.string.presentation_batch_g_stats_habit_total_sessions),
+                        label = stringResource(R.string.stats_habit_total_sessions),
                         value = summary.totalSessions.toString()
                     )
                     HabitMetric(
                         icon = Icons.Outlined.Hearing,
-                        label = stringResource(R.string.presentation_batch_g_stats_habit_avg_session),
+                        label = stringResource(R.string.stats_habit_avg_session),
                         value = formatListeningDurationCompact(summary.averageSessionDurationMs)
                     )
                     HabitMetric(
                         icon = Icons.Outlined.Bolt,
-                        label = stringResource(R.string.presentation_batch_g_stats_habit_longest_session),
+                        label = stringResource(R.string.stats_habit_longest_session),
                         value = if (summary.longestSessionDurationMs > 0L) {
                             formatListeningDurationCompact(summary.longestSessionDurationMs)
                         } else {
@@ -745,25 +745,27 @@ private fun ListeningHabitsCard(
                     )
                     HabitMetric(
                         icon = Icons.Outlined.AutoGraph,
-                        label = stringResource(R.string.presentation_batch_g_stats_habit_sessions_per_day),
+                        label = stringResource(R.string.stats_habit_sessions_per_day),
                         value = String.format(Locale.US, "%.1f", summary.averageSessionsPerDay)
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 HighlightRow(
-                    title = stringResource(R.string.presentation_batch_g_stats_habit_most_active_day),
+                    title = stringResource(R.string.stats_habit_most_active_day),
                     value = summary.peakDayLabel ?: emDash,
                     supporting = if (summary.peakDayDurationMs > 0L) {
                         formatListeningDurationCompact(summary.peakDayDurationMs)
                     } else {
-                        stringResource(R.string.presentation_batch_g_stats_habit_no_playback_yet)
+                        stringResource(R.string.stats_habit_no_playback_yet)
                     },
                     icon = Icons.Outlined.CalendarMonth
                 )
                 summary.peakTimeline?.let { peak ->
+                    val use24Hour = AndroidDateFormat.is24HourFormat(LocalContext.current)
+                    val formattedLabel = formatTimelineLabelForRange(peak.label, summary.range, emDash, use24Hour)
                     HighlightRow(
-                        title = stringResource(R.string.presentation_batch_g_stats_habit_peak_timeline_slot),
-                        value = peak.label,
+                        title = stringResource(R.string.stats_habit_peak_timeline_slot),
+                        value = formattedLabel,
                         supporting = formatListeningDurationCompact(peak.totalDurationMs),
                         icon = Icons.Outlined.AutoGraph
                     )
@@ -874,18 +876,18 @@ private enum class TimelineMetric(
     val extractValue: (PlaybackStatsRepository.TimelineEntry) -> Double,
 ) {
     ListeningTime(
-        displayNameRes = R.string.presentation_batch_g_stats_timeline_metric_listening_time,
-        descriptionRes = R.string.presentation_batch_g_stats_timeline_metric_listening_time_desc,
+        displayNameRes = R.string.stats_timeline_metric_listening_time,
+        descriptionRes = R.string.stats_timeline_metric_listening_time_desc,
         extractValue = { it.totalDurationMs.toDouble() },
     ),
     PlayCount(
-        displayNameRes = R.string.presentation_batch_g_stats_timeline_metric_play_count,
-        descriptionRes = R.string.presentation_batch_g_stats_timeline_metric_play_count_desc,
+        displayNameRes = R.string.stats_timeline_metric_play_count,
+        descriptionRes = R.string.stats_timeline_metric_play_count_desc,
         extractValue = { it.playCount.toDouble() },
     ),
     AverageSession(
-        displayNameRes = R.string.presentation_batch_g_stats_timeline_metric_avg_session,
-        descriptionRes = R.string.presentation_batch_g_stats_timeline_metric_avg_session_desc,
+        displayNameRes = R.string.stats_timeline_metric_avg_session,
+        descriptionRes = R.string.stats_timeline_metric_avg_session_desc,
         extractValue = { entry ->
             if (entry.playCount > 0) entry.totalDurationMs.toDouble() / entry.playCount.toDouble() else 0.0
         },
@@ -895,7 +897,7 @@ private enum class TimelineMetric(
 @Composable
 private fun TimelineMetric.formatEntryValue(entry: PlaybackStatsRepository.TimelineEntry): String = when (this) {
     TimelineMetric.ListeningTime -> formatListeningDurationCompact(entry.totalDurationMs)
-    TimelineMetric.PlayCount -> stringResource(R.string.presentation_batch_g_stats_n_plays, entry.playCount)
+    TimelineMetric.PlayCount -> stringResource(R.string.stats_n_plays, entry.playCount)
     TimelineMetric.AverageSession -> {
         val average = if (entry.playCount > 0) entry.totalDurationMs / entry.playCount else 0L
         formatListeningDurationCompact(average)
@@ -907,20 +909,20 @@ private enum class CategoryDimension(
     @StringRes val cardTitleRes: Int,
 ) {
     Genre(
-        displayNameRes = R.string.presentation_batch_g_stats_dim_genre,
-        cardTitleRes = R.string.presentation_batch_g_stats_card_listening_by_genre,
+        displayNameRes = R.string.stats_dim_genre,
+        cardTitleRes = R.string.stats_card_listening_by_genre,
     ),
     Artist(
-        displayNameRes = R.string.presentation_batch_g_stats_dim_artist,
-        cardTitleRes = R.string.presentation_batch_g_stats_card_listening_by_artist,
+        displayNameRes = R.string.stats_dim_artist,
+        cardTitleRes = R.string.stats_card_listening_by_artist,
     ),
     Album(
-        displayNameRes = R.string.presentation_batch_g_stats_dim_album,
-        cardTitleRes = R.string.presentation_batch_g_stats_card_listening_by_album,
+        displayNameRes = R.string.stats_dim_album,
+        cardTitleRes = R.string.stats_card_listening_by_album,
     ),
     Song(
-        displayNameRes = R.string.presentation_batch_g_stats_dim_song,
-        cardTitleRes = R.string.presentation_batch_g_stats_card_listening_by_song,
+        displayNameRes = R.string.stats_dim_song,
+        cardTitleRes = R.string.stats_card_listening_by_song,
     )
 }
 
@@ -1039,7 +1041,7 @@ private fun ListeningTimelineSection(
     val timeline = summary?.timeline.orEmpty()
     val hasTimeline = timeline.isNotEmpty() && timeline.any { it.totalDurationMs > 0L || it.playCount > 0 }
     val sectionTitleStyle = rememberStatsSectionTitleStyle()
-    val emDash = stringResource(R.string.presentation_batch_g_stats_em_dash)
+    val emDash = stringResource(R.string.stats_em_dash)
     val use24Hour = AndroidDateFormat.is24HourFormat(LocalContext.current)
 
     Column(
@@ -1051,7 +1053,7 @@ private fun ListeningTimelineSection(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = stringResource(R.string.presentation_batch_g_stats_section_listening_timeline),
+                text = stringResource(R.string.stats_section_listening_timeline),
                 style = sectionTitleStyle,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -1098,8 +1100,8 @@ private fun ListeningTimelineSection(
         if (!hasTimeline) {
             StatsEmptyState(
                 icon = Icons.Outlined.PlayCircleOutline,
-                title = stringResource(R.string.presentation_batch_g_stats_empty_no_timeline_title),
-                subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_timeline_subtitle)
+                title = stringResource(R.string.stats_empty_no_timeline_title),
+                subtitle = stringResource(R.string.stats_empty_no_timeline_subtitle)
             )
         } else {
             val cardColor = when (range) {
@@ -1129,11 +1131,11 @@ private fun ListeningTimelineSection(
                         ) {
                             Text(
                                 text = when (range) {
-                                    StatsTimeRange.DAY -> stringResource(R.string.presentation_batch_g_stats_rhythm_daily)
-                                    StatsTimeRange.WEEK -> stringResource(R.string.presentation_batch_g_stats_rhythm_weekly)
-                                    StatsTimeRange.MONTH -> stringResource(R.string.presentation_batch_g_stats_rhythm_monthly)
-                                    StatsTimeRange.YEAR -> stringResource(R.string.presentation_batch_g_stats_rhythm_year)
-                                    StatsTimeRange.ALL -> stringResource(R.string.presentation_batch_g_stats_rhythm_all_time)
+                                    StatsTimeRange.DAY -> stringResource(R.string.stats_rhythm_daily)
+                                    StatsTimeRange.WEEK -> stringResource(R.string.stats_rhythm_weekly)
+                                    StatsTimeRange.MONTH -> stringResource(R.string.stats_rhythm_monthly)
+                                    StatsTimeRange.YEAR -> stringResource(R.string.stats_rhythm_year)
+                                    StatsTimeRange.ALL -> stringResource(R.string.stats_rhythm_all_time)
                                 },
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
@@ -1141,11 +1143,11 @@ private fun ListeningTimelineSection(
                             )
                             Text(
                                 text = when (range) {
-                                    StatsTimeRange.DAY -> stringResource(R.string.presentation_batch_g_stats_grouped_4h)
-                                    StatsTimeRange.WEEK -> stringResource(R.string.presentation_batch_g_stats_grouped_dow)
-                                    StatsTimeRange.MONTH -> stringResource(R.string.presentation_batch_g_stats_grouped_week_of_month)
-                                    StatsTimeRange.YEAR -> stringResource(R.string.presentation_batch_g_stats_grouped_by_month)
-                                    StatsTimeRange.ALL -> stringResource(R.string.presentation_batch_g_stats_grouped_by_year)
+                                    StatsTimeRange.DAY -> stringResource(R.string.stats_grouped_4h)
+                                    StatsTimeRange.WEEK -> stringResource(R.string.stats_grouped_dow)
+                                    StatsTimeRange.MONTH -> stringResource(R.string.stats_grouped_week_of_month)
+                                    StatsTimeRange.YEAR -> stringResource(R.string.stats_grouped_by_month)
+                                    StatsTimeRange.ALL -> stringResource(R.string.stats_grouped_by_year)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1166,11 +1168,11 @@ private fun ListeningTimelineSection(
 
             summary?.peakTimeline?.let { peak ->
                 HighlightRow(
-                    title = stringResource(R.string.presentation_batch_g_stats_peak_segment),
+                    title = stringResource(R.string.stats_peak_segment),
                     value = formatTimelineLabelForRange(peak.label, range, emDash, use24Hour),
                     supporting = when (selectedMetric) {
                         TimelineMetric.ListeningTime -> formatListeningDurationCompact(peak.totalDurationMs)
-                        TimelineMetric.PlayCount -> stringResource(R.string.presentation_batch_g_stats_n_plays, peak.playCount)
+                        TimelineMetric.PlayCount -> stringResource(R.string.stats_n_plays, peak.playCount)
                         TimelineMetric.AverageSession -> {
                             val average = if (peak.playCount > 0) peak.totalDurationMs / peak.playCount else 0L
                             formatListeningDurationCompact(average)
@@ -1202,12 +1204,12 @@ private fun CategoryMetricsSection(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = stringResource(R.string.presentation_batch_g_stats_section_top_categories),
+                text = stringResource(R.string.stats_section_top_categories),
                 style = sectionTitleStyle,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = stringResource(R.string.presentation_batch_g_stats_top_categories_subtitle),
+                text = stringResource(R.string.stats_top_categories_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1253,7 +1255,7 @@ private fun CategoryMetricsSection(
                     label = it.genre,
                     durationMs = it.totalDurationMs,
                     supporting = stringResource(
-                        R.string.presentation_batch_g_stats_plays_artists,
+                        R.string.stats_plays_artists,
                         it.playCount,
                         it.uniqueArtists
                     )
@@ -1265,7 +1267,7 @@ private fun CategoryMetricsSection(
                     label = it.artist,
                     durationMs = it.totalDurationMs,
                     supporting = stringResource(
-                        R.string.presentation_batch_g_stats_plays_tracks,
+                        R.string.stats_plays_tracks,
                         it.playCount,
                         it.uniqueSongs
                     )
@@ -1277,7 +1279,7 @@ private fun CategoryMetricsSection(
                     label = it.album,
                     durationMs = it.totalDurationMs,
                     supporting = stringResource(
-                        R.string.presentation_batch_g_stats_plays_tracks,
+                        R.string.stats_plays_tracks,
                         it.playCount,
                         it.uniqueSongs
                     )
@@ -1286,7 +1288,7 @@ private fun CategoryMetricsSection(
 
             CategoryDimension.Song -> summary?.topSongs.orEmpty().map {
                 val supportingParts = buildList {
-                    add(stringResource(R.string.presentation_batch_g_stats_n_plays, it.playCount))
+                    add(stringResource(R.string.stats_n_plays, it.playCount))
                     if (it.artist.isNotBlank()) {
                         add(it.artist)
                     }
@@ -1302,8 +1304,8 @@ private fun CategoryMetricsSection(
         if (entries.isEmpty()) {
             StatsEmptyState(
                 icon = Icons.Outlined.MusicNote,
-                title = stringResource(R.string.presentation_batch_g_stats_empty_no_category_title),
-                subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_category_subtitle)
+                title = stringResource(R.string.stats_empty_no_category_title),
+                subtitle = stringResource(R.string.stats_empty_no_category_subtitle)
             )
         } else {
             Card(
@@ -1698,11 +1700,11 @@ private fun timelineSupportingCopy(
 ): String {
     val rangeCopy = stringResource(
         when (range) {
-            StatsTimeRange.DAY -> R.string.presentation_batch_g_stats_timeline_support_day
-            StatsTimeRange.WEEK -> R.string.presentation_batch_g_stats_timeline_support_week
-            StatsTimeRange.MONTH -> R.string.presentation_batch_g_stats_timeline_support_month
-            StatsTimeRange.YEAR -> R.string.presentation_batch_g_stats_timeline_support_year
-            StatsTimeRange.ALL -> R.string.presentation_batch_g_stats_timeline_support_all
+            StatsTimeRange.DAY -> R.string.stats_timeline_support_day
+            StatsTimeRange.WEEK -> R.string.stats_timeline_support_week
+            StatsTimeRange.MONTH -> R.string.stats_timeline_support_month
+            StatsTimeRange.YEAR -> R.string.stats_timeline_support_year
+            StatsTimeRange.ALL -> R.string.stats_timeline_support_all
         }
     )
     return stringResource(selectedMetric.descriptionRes) + " " + rangeCopy
@@ -1747,10 +1749,11 @@ private fun convertHourLabel(label: String, use24Hour: Boolean): String {
             else -> hour12
         }
         return if (use24Hour) {
-            String.format(Locale.US, "%02d:00", hour24)
+            String.format(Locale.getDefault(), "%02d:00", hour24)
         } else {
-            val meridiem = if (isPm) "PM" else "AM"
-            String.format(Locale.US, "%d %s", hour12, meridiem)
+            val time = java.time.LocalTime.of(hour24, 0)
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h a", Locale.getDefault())
+            time.format(formatter)
         }
     }
 
@@ -1759,15 +1762,11 @@ private fun convertHourLabel(label: String, use24Hour: Boolean): String {
     if (h24Match != null) {
         val hour24 = h24Match.groupValues[1].toIntOrNull() ?: return label
         return if (use24Hour) {
-            String.format(Locale.US, "%02d:00", hour24)
+            String.format(Locale.getDefault(), "%02d:00", hour24)
         } else {
-            val hour12 = when {
-                hour24 == 0 -> 12
-                hour24 > 12 -> hour24 - 12
-                else -> hour24
-            }
-            val meridiem = if (hour24 < 12) "AM" else "PM"
-            String.format(Locale.US, "%d %s", hour12, meridiem)
+            val time = java.time.LocalTime.of(hour24, 0)
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h a", Locale.getDefault())
+            time.format(formatter)
         }
     }
 
@@ -1775,15 +1774,11 @@ private fun convertHourLabel(label: String, use24Hour: Boolean): String {
     val bareHour = label.toIntOrNull()
     if (bareHour != null && bareHour in 0..23) {
         return if (use24Hour) {
-            String.format(Locale.US, "%02d:00", bareHour)
+            String.format(Locale.getDefault(), "%02d:00", bareHour)
         } else {
-            val hour12 = when {
-                bareHour == 0 -> 12
-                bareHour > 12 -> bareHour - 12
-                else -> bareHour
-            }
-            val meridiem = if (bareHour < 12) "AM" else "PM"
-            String.format(Locale.US, "%d %s", hour12, meridiem)
+            val time = java.time.LocalTime.of(bareHour, 0)
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h a", Locale.getDefault())
+            time.format(formatter)
         }
     }
 
@@ -1907,7 +1902,7 @@ private fun TopArtistsCard(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
-                text = stringResource(R.string.presentation_batch_g_stats_section_top_artists),
+                text = stringResource(R.string.stats_section_top_artists),
                 style = MaterialTheme.typography.titleLargeEmphasized,
                 color = contentColor
             )
@@ -1915,8 +1910,8 @@ private fun TopArtistsCard(
             if (artists.isEmpty()) {
                 StatsEmptyState(
                     icon = Icons.Outlined.MusicNote,
-                    title = stringResource(R.string.presentation_batch_g_stats_empty_no_artists_title),
-                    subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_artists_subtitle)
+                    title = stringResource(R.string.stats_empty_no_artists_title),
+                    subtitle = stringResource(R.string.stats_empty_no_artists_subtitle)
                 )
             } else {
                 val maxDuration = artists.maxOf { it.totalDurationMs }.coerceAtLeast(1L)
@@ -1935,7 +1930,7 @@ private fun TopArtistsCard(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = stringResource(
-                                            R.string.presentation_batch_g_stats_ranked_artist,
+                                            R.string.stats_ranked_artist,
                                             index + 1,
                                             artistSummary.artist
                                         ),
@@ -1946,7 +1941,7 @@ private fun TopArtistsCard(
                                     )
                                     Text(
                                         text = stringResource(
-                                            R.string.presentation_batch_g_stats_plays_tracks,
+                                            R.string.stats_plays_tracks,
                                             artistSummary.playCount,
                                             artistSummary.uniqueSongs
                                         ),
@@ -1982,7 +1977,7 @@ private fun ArtistAvatar(
     containerColor: Color,
     contentColor: Color
 ) {
-    val placeholder = stringResource(R.string.presentation_batch_g_stats_avatar_placeholder)
+    val placeholder = stringResource(R.string.stats_avatar_placeholder)
     val initials = remember(name, placeholder) {
         name.split(" ")
             .filter { it.isNotBlank() }
@@ -2024,7 +2019,7 @@ private fun TopAlbumsCard(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             Text(
-                text = stringResource(R.string.presentation_batch_g_stats_section_top_albums),
+                text = stringResource(R.string.stats_section_top_albums),
                 style = MaterialTheme.typography.titleLargeEmphasized,
                 color = contentColor
             )
@@ -2032,8 +2027,8 @@ private fun TopAlbumsCard(
             if (albums.isEmpty()) {
                 StatsEmptyState(
                     icon = Icons.Outlined.Album,
-                    title = stringResource(R.string.presentation_batch_g_stats_empty_no_albums_title),
-                    subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_albums_subtitle)
+                    title = stringResource(R.string.stats_empty_no_albums_title),
+                    subtitle = stringResource(R.string.stats_empty_no_albums_subtitle)
                 )
             } else {
                 val maxDuration = albums.maxOf { it.totalDurationMs }.coerceAtLeast(1L)
@@ -2055,7 +2050,7 @@ private fun TopAlbumsCard(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = stringResource(
-                                            R.string.presentation_batch_g_stats_ranked_album,
+                                            R.string.stats_ranked_album,
                                             index + 1,
                                             albumSummary.album
                                         ),
@@ -2066,7 +2061,7 @@ private fun TopAlbumsCard(
                                     )
                                     Text(
                                         text = stringResource(
-                                            R.string.presentation_batch_g_stats_plays_tracks,
+                                            R.string.stats_plays_tracks,
                                             albumSummary.playCount,
                                             albumSummary.uniqueSongs
                                         ),
@@ -2125,13 +2120,13 @@ private fun SongStatsCard(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.presentation_batch_g_stats_tracks_in_range_title),
+                    text = stringResource(R.string.stats_tracks_in_range_title),
                     style = MaterialTheme.typography.titleLargeEmphasized,
                     fontWeight = FontWeight.SemiBold,
                     color = contentColor
                 )
                 Text(
-                    text = stringResource(R.string.presentation_batch_g_stats_tracks_in_range_subtitle),
+                    text = stringResource(R.string.stats_tracks_in_range_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = supportingColor
                 )
@@ -2140,8 +2135,8 @@ private fun SongStatsCard(
             if (songs.isEmpty()) {
                 StatsEmptyState(
                     icon = Icons.Outlined.MusicNote,
-                    title = stringResource(R.string.presentation_batch_g_stats_empty_no_tracks_title),
-                    subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_tracks_subtitle)
+                    title = stringResource(R.string.stats_empty_no_tracks_title),
+                    subtitle = stringResource(R.string.stats_empty_no_tracks_subtitle)
                 )
             } else {
                 Column(
@@ -2207,7 +2202,7 @@ private fun SongStatsCard(
                                         )
                                         Text(
                                             text = stringResource(
-                                                R.string.presentation_batch_g_stats_n_plays,
+                                                R.string.stats_n_plays,
                                                 songSummary.playCount
                                             ),
                                             style = MaterialTheme.typography.labelSmall,
@@ -2249,9 +2244,9 @@ private fun SongStatsCard(
                     ) {
                         Text(
                             text = if (showAll) {
-                                stringResource(R.string.presentation_batch_g_stats_collapse_tracks)
+                                stringResource(R.string.stats_collapse_tracks)
                             } else {
-                                stringResource(R.string.presentation_batch_g_stats_show_all_tracks)
+                                stringResource(R.string.stats_show_all_tracks)
                             },
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.SemiBold,
@@ -2284,14 +2279,14 @@ private fun TrackConcentrationCard(
             ) {
                 Text(
                     modifier = Modifier.padding(start = 6.dp),
-                    text = stringResource(R.string.presentation_batch_g_stats_track_concentration_title),
+                    text = stringResource(R.string.stats_track_concentration_title),
                     style = MaterialTheme.typography.titleLargeEmphasized,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     modifier = Modifier.padding(start = 6.dp),
-                    text = stringResource(R.string.presentation_batch_g_stats_track_concentration_subtitle),
+                    text = stringResource(R.string.stats_track_concentration_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f)
                 )
@@ -2300,8 +2295,8 @@ private fun TrackConcentrationCard(
             if (songs.isEmpty()) {
                 StatsEmptyState(
                     icon = Icons.Outlined.AutoGraph,
-                    title = stringResource(R.string.presentation_batch_g_stats_empty_no_concentration_title),
-                    subtitle = stringResource(R.string.presentation_batch_g_stats_empty_no_concentration_subtitle)
+                    title = stringResource(R.string.stats_empty_no_concentration_title),
+                    subtitle = stringResource(R.string.stats_empty_no_concentration_subtitle)
                 )
             } else {
                 val totalDuration = songs.sumOf { it.totalDurationMs }.coerceAtLeast(1L)
@@ -2319,7 +2314,7 @@ private fun TrackConcentrationCard(
                     if (topOneDuration > 0L) {
                         add(
                             TrackShareSlice(
-                                label = stringResource(R.string.presentation_batch_g_stats_slice_top_1),
+                                label = stringResource(R.string.stats_slice_top_1),
                                 durationMs = topOneDuration,
                                 color = topOneColor
                             )
@@ -2329,7 +2324,7 @@ private fun TrackConcentrationCard(
                     if (topTwoToThree > 0L) {
                         add(
                             TrackShareSlice(
-                                label = stringResource(R.string.presentation_batch_g_stats_slice_top_2_3),
+                                label = stringResource(R.string.stats_slice_top_2_3),
                                 durationMs = topTwoToThree,
                                 color = topTwoThreeColor
                             )
@@ -2339,7 +2334,7 @@ private fun TrackConcentrationCard(
                     if (remaining > 0L) {
                         add(
                             TrackShareSlice(
-                                label = stringResource(R.string.presentation_batch_g_stats_slice_others),
+                                label = stringResource(R.string.stats_slice_others),
                                 durationMs = remaining,
                                 color = othersColor
                             )
@@ -2450,7 +2445,7 @@ private fun TrackDistributionOverview(
                             )
                             Text(
                                 text = stringResource(
-                                    R.string.presentation_batch_g_stats_percent,
+                                    R.string.stats_percent,
                                     (share * 100f).roundToInt()
                                 ),
                                 style = MaterialTheme.typography.labelMedium,
@@ -2482,13 +2477,13 @@ private fun TrackDistributionStats(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = stringResource(R.string.presentation_batch_g_stats_listening_concentration_title),
+            text = stringResource(R.string.stats_listening_concentration_title),
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
             text = stringResource(
-                R.string.presentation_batch_g_stats_top_three_share_line,
+                R.string.stats_top_three_share_line,
                 (topThreeShare * 100f).roundToInt()
             ),
             style = MaterialTheme.typography.bodySmall,
@@ -2510,7 +2505,7 @@ private fun TrackDistributionStats(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = stringResource(R.string.presentation_batch_g_stats_avg_plays_per_track),
+                        text = stringResource(R.string.stats_avg_plays_per_track),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f)
                     )
@@ -2531,7 +2526,7 @@ private fun TrackDistributionStats(
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = stringResource(R.string.presentation_batch_g_stats_unique_tracks),
+                        text = stringResource(R.string.stats_unique_tracks),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.76f)
                     )
@@ -2617,7 +2612,7 @@ private fun TrackDistributionDonut(
         ) {
             Text(
                 text = stringResource(
-                    R.string.presentation_batch_g_stats_percent,
+                    R.string.stats_percent,
                     (topThreeShare * 100f).roundToInt()
                 ),
                 style = rememberStatsMetricValueStyle(compact = false).copy(
@@ -2627,7 +2622,7 @@ private fun TrackDistributionDonut(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = stringResource(R.string.presentation_batch_g_stats_top_three_share_label),
+                text = stringResource(R.string.stats_top_three_share_label),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

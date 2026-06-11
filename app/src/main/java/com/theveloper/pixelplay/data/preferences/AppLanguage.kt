@@ -5,18 +5,18 @@ import androidx.annotation.StringRes
 import com.theveloper.pixelplay.R
 
 enum class AppLanguage(val tag: String, @StringRes val labelRes: Int) {
-    SYSTEM("", R.string.setcat_language_system),
-    ENGLISH("en", R.string.setcat_language_english),
-    GERMAN("de", R.string.setcat_language_german),
-    SPANISH("es", R.string.setcat_language_spanish),
-    FRENCH("fr", R.string.setcat_language_french),
-    INDONESIAN("in", R.string.setcat_language_indonesian),
-    ITALIAN("it", R.string.setcat_language_italian),
-    KOREAN("ko", R.string.setcat_language_korean),
-    NORWEGIAN_BOKMAL("nb", R.string.setcat_language_norwegian_bokmal),
-    RUSSIAN("ru", R.string.setcat_language_russian),
-    SIMPLIFIED_CHINESE("zh-rCN", R.string.setcat_language_chinese),
-    TURKISH("tr", R.string.setcat_language_turkish);
+    SYSTEM("", R.string.settings_language_system),
+    ENGLISH("en", R.string.settings_language_english),
+    GERMAN("de", R.string.settings_language_german),
+    SPANISH("es", R.string.settings_language_spanish),
+    FRENCH("fr", R.string.settings_language_french),
+    INDONESIAN("in", R.string.settings_language_indonesian),
+    ITALIAN("it", R.string.settings_language_italian),
+    KOREAN("ko", R.string.settings_language_korean),
+    NORWEGIAN_BOKMAL("nb", R.string.settings_language_norwegian_bokmal),
+    RUSSIAN("ru", R.string.settings_language_russian),
+    SIMPLIFIED_CHINESE("zh-CN", R.string.settings_language_chinese),
+    TURKISH("tr", R.string.settings_language_turkish);
 
     companion object {
         val supportedLanguageTags: Set<String> = values().map { it.tag }.toSet()

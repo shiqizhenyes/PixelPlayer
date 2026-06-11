@@ -70,18 +70,18 @@ class SongRemovalStateHolder @Inject constructor(
 
                 val userChoice = CompletableDeferred<Boolean>()
                 val dialog = MaterialAlertDialogBuilder(activity)
-                    .setTitle(activity.getString(R.string.dialog_delete_song_title))
+                    .setTitle(activity.getString(R.string.song_removal_dialog_delete_song_title))
                     .setMessage(
                         activity.getString(
-                            R.string.dialog_delete_song_message,
+                            R.string.song_removal_dialog_delete_song_message,
                             song.title,
                             song.displayArtist
                         )
                     )
-                    .setPositiveButton(activity.getString(R.string.delete_action)) { _, _ ->
+                    .setPositiveButton(activity.getString(R.string.common_delete)) { _, _ ->
                         userChoice.complete(true)
                     }
-                    .setNegativeButton(activity.getString(R.string.cancel)) { _, _ ->
+                    .setNegativeButton(activity.getString(R.string.common_cancel)) { _, _ ->
                         userChoice.complete(false)
                     }
                     .setOnCancelListener {
@@ -126,7 +126,7 @@ class SongRemovalStateHolder @Inject constructor(
             val deletableSongs = songs.filter { it.id != currentSongId }
 
             if (deletableSongs.isEmpty()) {
-                cb.sendToast(context.getString(R.string.player_cannot_delete_currently_playing))
+                cb.sendToast(context.getString(R.string.song_removal_cannot_delete_currently_playing))
                 return@launch
             }
 
@@ -189,12 +189,12 @@ class SongRemovalStateHolder @Inject constructor(
             when {
                 successCount == deletableSongs.size && skippedCount == 0 ->
                     cb.sendToast(
-                        context.resources.getQuantityString(R.plurals.n_files_deleted, successCount, successCount),
+                        context.resources.getQuantityString(R.plurals.song_removal_n_files_deleted, successCount, successCount),
                     )
                 successCount == deletableSongs.size && skippedCount > 0 ->
                     cb.sendToast(
                         context.getString(
-                            R.string.player_batch_delete_files_deleted_skipped_format,
+                            R.string.song_removal_batch_delete_files_deleted_skipped_format,
                             successCount,
                             skippedCount,
                         ),
@@ -202,13 +202,13 @@ class SongRemovalStateHolder @Inject constructor(
                 successCount > 0 ->
                     cb.sendToast(
                         context.getString(
-                            R.string.player_batch_delete_partial_format,
+                            R.string.song_removal_batch_delete_partial_format,
                             successCount,
                             deletableSongs.size,
                         ),
                     )
                 else ->
-                    cb.sendToast(context.getString(R.string.player_delete_files_failed))
+                    cb.sendToast(context.getString(R.string.song_removal_delete_files_failed))
             }
 
             multiSelectionStateHolder.clearSelection()
@@ -228,16 +228,16 @@ class SongRemovalStateHolder @Inject constructor(
                 val dialog = MaterialAlertDialogBuilder(activity)
                     .setTitle(
                         context.resources.getQuantityString(
-                            R.plurals.delete_songs_confirmation_title,
+                            R.plurals.song_removal_delete_songs_confirmation_title,
                             count,
                             count,
                         ),
                     )
-                    .setMessage(context.getString(R.string.delete_songs_permanent_message))
-                    .setPositiveButton(context.getString(R.string.delete_action)) { _, _ ->
+                    .setMessage(context.getString(R.string.song_removal_delete_songs_permanent_message))
+                    .setPositiveButton(context.getString(R.string.common_delete)) { _, _ ->
                         userChoice.complete(true)
                     }
-                    .setNegativeButton(context.getString(R.string.cancel)) { _, _ ->
+                    .setNegativeButton(context.getString(R.string.common_cancel)) { _, _ ->
                         userChoice.complete(false)
                     }
                     .setOnCancelListener {
@@ -263,7 +263,7 @@ class SongRemovalStateHolder @Inject constructor(
         cb.scope.launch {
             // Failsafe: Prevent deleting the currently playing song
             if (playbackStateHolder.stablePlayerState.value.currentSong?.id == song.id) {
-                cb.sendToast(context.getString(R.string.player_cannot_delete_currently_playing))
+                cb.sendToast(context.getString(R.string.song_removal_cannot_delete_currently_playing))
                 onResult(false)
                 return@launch
             }
@@ -304,12 +304,12 @@ class SongRemovalStateHolder @Inject constructor(
 
             val success = deleteSongFile(song)
             if (success) {
-                cb.sendToast(context.getString(R.string.player_file_deleted))
+                cb.sendToast(context.getString(R.string.song_removal_file_deleted))
                 cb.removeFromMediaControllerQueue(song.id)
                 cb.removeSong(song)
                 onResult(true)
             } else {
-                cb.sendToast(context.getString(R.string.player_delete_file_not_found))
+                cb.sendToast(context.getString(R.string.song_removal_delete_file_not_found))
                 onResult(false)
             }
         }
@@ -336,18 +336,18 @@ class SongRemovalStateHolder @Inject constructor(
                     if (skippedCount > 0) {
                         cb.sendToast(
                             context.getString(
-                                R.string.player_batch_delete_files_deleted_skipped_format,
+                                R.string.song_removal_batch_delete_files_deleted_skipped_format,
                                 count,
                                 skippedCount,
                             ),
                         )
                     } else {
                         cb.sendToast(
-                            context.resources.getQuantityString(R.plurals.n_files_deleted, count, count),
+                            context.resources.getQuantityString(R.plurals.song_removal_n_files_deleted, count, count),
                         )
                     }
                 } else {
-                    cb.sendToast(context.getString(R.string.player_deletion_cancelled))
+                    cb.sendToast(context.getString(R.string.song_removal_deletion_cancelled))
                 }
                 multiSelectionStateHolder.clearSelection()
                 onComplete?.invoke()
@@ -363,7 +363,7 @@ class SongRemovalStateHolder @Inject constructor(
         cb.scope.launch {
             if (granted) {
                 // The system already deleted the file — just clean up the library
-                cb.sendToast(context.getString(R.string.player_file_deleted))
+                cb.sendToast(context.getString(R.string.song_removal_file_deleted))
                 cb.removeFromMediaControllerQueue(song.id)
                 cb.removeSong(song)
                 callback?.invoke(true)

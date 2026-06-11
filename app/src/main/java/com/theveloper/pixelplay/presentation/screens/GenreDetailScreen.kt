@@ -248,7 +248,7 @@ fun GenreDetailScreen(
             }
     }
     val genreDisplayName = themeGenre?.name ?: uiState.genre?.name ?: initialDisplayName
-    val genreShuffleLabel = stringResource(R.string.presentation_batch_b_genre_shuffle_label, genreDisplayName)
+    val genreShuffleLabel = stringResource(R.string.genre_shuffle_label, genreDisplayName)
     val genreFastScrollLabelProvider = remember(uiState.flattenedItems, uiState.sortOption) {
         { index: Int ->
             genreFastScrollLabel(
@@ -259,8 +259,8 @@ fun GenreDetailScreen(
         }
     }
     
-    val toastAddedToQueue = stringResource(R.string.toast_added_to_queue)
-    val toastPlayingNext = stringResource(R.string.toast_playing_next)
+    val toastAddedToQueue = stringResource(R.string.library_toast_added_to_queue)
+    val toastPlayingNext = stringResource(R.string.library_toast_playing_next)
 
     // FAB Logic
     var showSortSheet by remember { mutableStateOf(false) }
@@ -474,7 +474,7 @@ fun GenreDetailScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = stringResource(R.string.cd_options),
+                            contentDescription = stringResource(R.string.common_options),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -820,7 +820,7 @@ fun GenreCollapsibleTopBar(
                     contentColor = animatedContentColor
                 )
             ) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.auth_cd_back), tint = animatedContentColor)
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back), tint = animatedContentColor)
             }
 
             ExpressiveTopBarContent(
@@ -895,7 +895,7 @@ fun GenreArtistHeader(
                     } else {
                         Icon(
                             imageVector = Icons.Rounded.Person,
-                            contentDescription = stringResource(R.string.cd_generic_artist),
+                            contentDescription = stringResource(R.string.genre_cd_generic_artist),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier
                                 .padding(10.dp)
@@ -992,7 +992,7 @@ fun GenreAlbumHeader(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
-                Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play_album))
+                Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.common_play_album))
             }
         }
     }

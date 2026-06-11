@@ -315,7 +315,7 @@ fun AlbumDetailScreen(
                             if (songsByDisc.size > 1) {
                                 item(key = "disc_header_$discNumber") {
                                     Text(
-                                        text = stringResource(R.string.disc_number_header, discNumber),
+                                        text = stringResource(R.string.album_disc_number_header, discNumber),
                                         style = MaterialTheme.typography.labelLarge,
                                         color = MaterialTheme.colorScheme.primary,
                                         fontWeight = FontWeight.Bold,
@@ -615,7 +615,7 @@ private fun SharedAlbumTopBarProbe(
                     alpha = expandedContentAlpha
                 }
         ) {
-            Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.cd_shuffle_play_album))
+            Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
         }
     }
 }
@@ -732,7 +732,7 @@ private fun CollapsingAlbumTopBar(
                     onClick = onBackPressed,
                     colors = IconButtonDefaults.filledIconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
                 ) {
-                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.auth_cd_back))
+                    Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                 }
 
                 Box(
@@ -789,7 +789,7 @@ private fun CollapsingAlbumTopBar(
                             alpha = fabScale
                         }
                 ) {
-                    Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.cd_shuffle_play_album))
+                    Icon(Icons.Rounded.Shuffle, contentDescription = stringResource(R.string.common_shuffle_play_album))
                 }
             }
         }

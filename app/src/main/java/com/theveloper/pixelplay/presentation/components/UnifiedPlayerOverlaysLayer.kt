@@ -189,8 +189,8 @@ internal fun UnifiedPlayerSongInfoLayer(
 ) {
     selectedSongForInfo?.let { staticSong ->
         val context = LocalContext.current
-        val toastAddedToQueue = stringResource(R.string.toast_added_to_queue)
-        val toastPlayingNext = stringResource(R.string.toast_playing_next)
+        val toastAddedToQueue = stringResource(R.string.library_toast_added_to_queue)
+        val toastPlayingNext = stringResource(R.string.library_toast_playing_next)
         var showPlaylistBottomSheet by remember(staticSong.id) { mutableStateOf(false) }
         val playlistViewModel: PlaylistViewModel = hiltViewModel()
         val playlistUiState by playlistViewModel.uiState.collectAsStateWithLifecycle()

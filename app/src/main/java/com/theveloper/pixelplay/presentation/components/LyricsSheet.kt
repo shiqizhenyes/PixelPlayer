@@ -556,10 +556,10 @@ fun LyricsSheet(
         
         AlertDialog(
             onDismissRequest = { showSaveLyricsDialog = false },
-            title = { Text(stringResource(R.string.save_lyrics_dialog_title)) },
+            title = { Text(stringResource(R.string.lyrics_save_dialog_title)) },
             text = {
                 Column {
-                    Text(stringResource(R.string.save_lyrics_dialog_message))
+                    Text(stringResource(R.string.lyrics_save_dialog_message))
                     Spacer(modifier = Modifier.height(16.dp))
                     if (hasSynced) {
                         FilledTonalButton(
@@ -573,7 +573,7 @@ fun LyricsSheet(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(stringResource(R.string.save_synced_lyrics))
+                            Text(stringResource(R.string.lyrics_save_synced))
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -589,7 +589,7 @@ fun LyricsSheet(
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text(stringResource(R.string.save_plain_lyrics))
+                            Text(stringResource(R.string.lyrics_save_plain))
                         }
                     }
                 }
@@ -597,7 +597,7 @@ fun LyricsSheet(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showSaveLyricsDialog = false }) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.common_cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -752,7 +752,7 @@ fun LyricsSheet(
                                     if (isLoadingLyrics) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                             Text(
-                                                text = stringResource(R.string.loading_lyrics),
+                                                text = stringResource(R.string.lyrics_loading),
                                                 style = MaterialTheme.typography.titleMedium
                                             )
                                             Spacer(modifier = Modifier.height(8.dp))
@@ -806,7 +806,7 @@ fun LyricsSheet(
                                         item(key = "provider_text") {
                                             ProviderText(
                                                 providerText = stringResource(R.string.lyrics_provided_by),
-                                                uri = stringResource(R.string.lrclib_uri),
+                                                uri = stringResource(R.string.lyrics_lrclib_uri),
                                                 textAlign = TextAlign.Center,
                                                 accentColor = lyricHighlightColor,
                                                 modifier = Modifier
@@ -960,7 +960,7 @@ fun LyricsSheet(
                                 Icon(
                                     modifier = Modifier.size(32.dp),
                                     imageVector = Icons.Rounded.PlayArrow,
-                                    contentDescription = stringResource(R.string.cd_play),
+                                    contentDescription = stringResource(R.string.common_play),
                                     tint = onPlayPauseColor
                                 )
                             }

@@ -205,7 +205,7 @@ fun MultiSelectionBottomSheet(
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = stringResource(R.string.multi_selection_selected),
+                            text = stringResource(R.string.multi_selection_songs_selected),
                             style = MaterialTheme.typography.bodyLarge,
                             fontFamily = GoogleSansRounded,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -231,7 +231,7 @@ fun MultiSelectionBottomSheet(
                         Icon(
                             modifier = Modifier.padding(horizontal = 8.dp),
                             imageVector = Icons.Rounded.Edit,
-                            contentDescription = stringResource(R.string.cd_edit_song_metadata)
+                            contentDescription = stringResource(R.string.song_info_cd_edit_metadata)
                         )
                     }
                 }
@@ -270,16 +270,16 @@ fun MultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.Rounded.PlayArrow,
-                                    contentDescription = stringResource(R.string.cd_play_all),
+                                    contentDescription = stringResource(R.string.song_info_cd_play_all),
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.action_play_all),
+                                    text = stringResource(R.string.song_info_action_play_all),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,
                                     lineHeight = 22.sp,
-                                    style = MaterialTheme.typography.titleMediumEmphasized
+                                    style = MaterialTheme.typography.titleLarge
                                 )
                             }
                             // Like/Unlike toggle button
@@ -306,7 +306,7 @@ fun MultiSelectionBottomSheet(
                                     else
                                         Icons.Rounded.FavoriteBorder,
                                     contentDescription = stringResource(
-                                        if (allAreLiked) R.string.cd_unlike_all else R.string.cd_like_all
+                                        if (allAreLiked) R.string.song_info_cd_remove_from_favorites_all else R.string.song_info_cd_add_to_favorites_all
                                     )
                                 )
                             }
@@ -328,7 +328,7 @@ fun MultiSelectionBottomSheet(
                                 Icon(
                                     modifier = Modifier.size(FloatingActionButtonDefaults.LargeIconSize),
                                     imageVector = Icons.Rounded.Share,
-                                    contentDescription = stringResource(R.string.cd_share_all_as_zip)
+                                    contentDescription = stringResource(R.string.song_info_cd_share_all_as_zip)
                                 )
                             }
                         }
@@ -360,11 +360,11 @@ fun MultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.AutoMirrored.Rounded.QueueMusic,
-                                    contentDescription = stringResource(R.string.cd_add_all_to_queue)
+                                    contentDescription = stringResource(R.string.song_info_cd_add_to_queue)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.action_add_to_queue),
+                                    text = stringResource(R.string.song_info_action_add_to_queue),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,
@@ -389,11 +389,11 @@ fun MultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.AutoMirrored.Filled.QueueMusic,
-                                    contentDescription = stringResource(R.string.cd_play_next_in_queue)
+                                    contentDescription = stringResource(R.string.song_info_cd_queue_next)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.action_queue_next),
+                                    text = stringResource(R.string.song_info_action_queue_next),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,
@@ -429,11 +429,11 @@ fun MultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.AutoMirrored.Rounded.PlaylistAdd,
-                                    contentDescription = stringResource(R.string.cd_add_to_playlist)
+                                    contentDescription = stringResource(R.string.song_info_cd_add_to_playlist)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.shortcut_playlist_short),
+                                    text = stringResource(R.string.common_playlist),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,
@@ -462,11 +462,11 @@ fun MultiSelectionBottomSheet(
                             ) {
                                 Icon(
                                     Icons.Rounded.Delete,
-                                    contentDescription = stringResource(R.string.cd_delete_all_songs)
+                                    contentDescription = stringResource(R.string.song_info_action_delete_all)
                                 )
                                 Spacer(Modifier.width(6.dp))
                                 TightWrapText(
-                                    text = stringResource(R.string.action_delete_all),
+                                    text = stringResource(R.string.song_info_action_delete_all),
                                     modifier = Modifier.padding(end = 4.dp),
                                     overflow = TextOverflow.Ellipsis,
                                     maxLines = 2,

@@ -261,8 +261,8 @@ fun QueueBottomSheet(
     var isFabExpanded by rememberSaveable { mutableStateOf(false) }
     // Hoist resource strings at composition time so they react to locale changes
     // and can be safely captured in onClick lambdas.
-    val queueNamedSuffixTemplate = stringResource(R.string.presentation_batch_e_queue_named_suffix)
-    val queueCurrentLabel = stringResource(R.string.presentation_batch_e_queue_current)
+    val queueNamedSuffixTemplate = stringResource(R.string.queue_save_playlist_named)
+    val queueCurrentLabel = stringResource(R.string.queue_save_playlist_current)
 
     LaunchedEffect(isVisible) {
         if (!isVisible) {
@@ -796,7 +796,7 @@ fun QueueBottomSheet(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            stringResource(R.string.presentation_batch_e_queue_empty),
+                            stringResource(R.string.queue_empty_label),
                             color = colors.onSurface
                         )
                     }
@@ -920,7 +920,7 @@ fun QueueBottomSheet(
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Rounded.DragIndicator,
-                                                    contentDescription = stringResource(R.string.presentation_batch_b_reorder_song),
+                                                    contentDescription = stringResource(R.string.queue_cd_reorder_song),
                                                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
@@ -1000,7 +1000,7 @@ fun QueueBottomSheet(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreHoriz,
-                            contentDescription = stringResource(R.string.presentation_batch_e_cd_queue_actions),
+                            contentDescription = stringResource(R.string.queue_cd_more_action),
                         )
                     }
                 }
@@ -1055,7 +1055,7 @@ fun QueueBottomSheet(
                         ) {
                             if (currentSongDisplayIndex >= 0 && currentSongDisplayIndex < displaySongCount) {
                                 QueueToolbarMenuButton(
-                                    text = stringResource(R.string.presentation_batch_e_action_locate_current_song),
+                                    text = stringResource(R.string.queue_action_locate_current_song),
                                     icon = Icons.Rounded.MyLocation,
                                     containerColor = MaterialTheme.colorScheme.tertiaryContainer,
                                     contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -1073,7 +1073,7 @@ fun QueueBottomSheet(
                                 )
                             }
                             QueueToolbarMenuButton(
-                                text = stringResource(R.string.presentation_batch_e_action_clear_queue),
+                                text = stringResource(R.string.queue_action_clear_queue),
                                 icon = Icons.Filled.ClearAll,
                                 containerColor = MaterialTheme.colorScheme.errorContainer,
                                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
@@ -1083,7 +1083,7 @@ fun QueueBottomSheet(
                                 }
                             )
                             QueueToolbarMenuButton(
-                                text = stringResource(R.string.presentation_batch_e_action_save_as_playlist),
+                                text = stringResource(R.string.queue_action_save_as_playlist),
                                 icon = Icons.Filled.LibraryAdd,
                                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -1152,7 +1152,7 @@ fun QueueBottomSheet(
                         )
                         Spacer(Modifier.width(4.dp))
                         Text(
-                            text = stringResource(R.string.presentation_batch_e_removed),
+                            text = stringResource(R.string.queue_song_removed),
                             style = MaterialTheme.typography.bodyMedium,
                             color = colors.inverseOnSurface.copy(alpha = 0.7f),
                         )
@@ -1160,7 +1160,7 @@ fun QueueBottomSheet(
                             onClick = { viewModel.undoRemoveSongFromQueue() }
                         ) {
                             Text(
-                                text = stringResource(R.string.action_undo),
+                                text = stringResource(R.string.common_undo),
                                 color = colors.inversePrimary,
                                 fontWeight = FontWeight.Bold
                             )
@@ -1189,8 +1189,8 @@ fun QueueBottomSheet(
         if (showClearQueueDialog) {
             AlertDialog(
                 onDismissRequest = { showClearQueueDialog = false },
-                title = { Text(stringResource(R.string.presentation_batch_e_clear_queue_dialog_title)) },
-                text = { Text(stringResource(R.string.presentation_batch_e_clear_queue_dialog_message)) },
+                title = { Text(stringResource(R.string.queue_dialog_clear_queue_title)) },
+                text = { Text(stringResource(R.string.queue_dialog_clear_queue_message)) },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -1198,14 +1198,14 @@ fun QueueBottomSheet(
                             showClearQueueDialog = false
                         }
                     ) {
-                        Text(stringResource(R.string.presentation_batch_b_clear), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.common_clear), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 },
                 dismissButton = {
                     TextButton(
                         onClick = { showClearQueueDialog = false }
                     ) {
-                        Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.common_cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             )
@@ -1339,7 +1339,7 @@ private fun QueueHeader(
                     )
                     onLocateCurrentSong()
                 },
-                text = stringResource(R.string.presentation_batch_e_next_up),
+                text = stringResource(R.string.queue_next_up_label),
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = GoogleSansRounded,
                     fontWeight = FontWeight.SemiBold
@@ -1348,9 +1348,9 @@ private fun QueueHeader(
             )
             Text(
                 text = when {
-                    queueCount <= 0 -> stringResource(R.string.presentation_batch_e_queue_subtitle_empty)
+                    queueCount <= 0 -> stringResource(R.string.queue_tracks_empty)
                     else -> pluralStringResource(
-                        R.plurals.presentation_batch_e_queue_tracks_lined_up,
+                        R.plurals.queue_tracks_lined_up,
                         queueCount,
                         queueCount
                     )
@@ -1391,7 +1391,7 @@ private fun QueueSourceBadge(
                 tint = colors.onSurfaceVariant
             )
             Text(
-                text = queueSourceName.ifBlank { stringResource(R.string.presentation_batch_e_queue_source_fallback) },
+                text = queueSourceName.ifBlank { stringResource(R.string.queue_source_fallback_label) },
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
                 color = colors.onSurfaceVariant,
                 overflow = TextOverflow.Ellipsis,
@@ -1447,7 +1447,7 @@ private fun QueueControlsToolbar(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Shuffle,
-                    contentDescription = stringResource(R.string.presentation_batch_e_cd_toggle_shuffle),
+                    contentDescription = stringResource(R.string.queue_cd_toggle_shuffle_action),
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -1462,7 +1462,7 @@ private fun QueueControlsToolbar(
                 }
                 Icon(
                     imageVector = repeatIcon,
-                    contentDescription = stringResource(R.string.presentation_batch_e_cd_toggle_repeat),
+                    contentDescription = stringResource(R.string.queue_cd_toggle_repeat_action),
                 )
             }
             Spacer(modifier = Modifier.width(12.dp))
@@ -1473,7 +1473,7 @@ private fun QueueControlsToolbar(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Timer,
-                    contentDescription = stringResource(R.string.presentation_batch_e_cd_sleep_timer),
+                    contentDescription = stringResource(R.string.queue_cd_sleep_timer_action),
                 )
             }
         }
@@ -1552,7 +1552,7 @@ fun SaveQueueAsPlaylistSheet(
                             title = {
                                 Text(
                                     modifier = Modifier.padding(start = 4.dp),
-                                    text = stringResource(R.string.presentation_batch_e_save_as_playlist_sheet_title),
+                                    text = stringResource(R.string.queue_save_as_playlist_sheet_title),
                                     style = MaterialTheme.typography.headlineMedium,
                                     fontFamily = GoogleSansRounded,
                                     fontWeight = FontWeight.SemiBold,
@@ -1569,7 +1569,7 @@ fun SaveQueueAsPlaylistSheet(
                                         contentColor = MaterialTheme.colorScheme.onSurface
                                     )
                                 ) {
-                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close))
+                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.common_close))
                                 }
                             },
                             actions = {
@@ -1617,9 +1617,9 @@ fun SaveQueueAsPlaylistSheet(
                                         )
                                         Text(
                                             text = if (allSelected) {
-                                                stringResource(R.string.presentation_batch_e_deselect_all)
+                                                stringResource(R.string.queue_save_as_playlist_deselect_all)
                                             } else {
-                                                stringResource(R.string.presentation_batch_b_select_all)
+                                                stringResource(R.string.common_select_all)
                                             },
                                             style = MaterialTheme.typography.labelLarge,
                                             fontWeight = FontWeight.Bold
@@ -1642,7 +1642,7 @@ fun SaveQueueAsPlaylistSheet(
                             OutlinedTextField(
                                 value = playlistName,
                                 onValueChange = { playlistName = it },
-                                label = { Text(stringResource(R.string.presentation_batch_e_playlist_name_label)) },
+                                label = { Text(stringResource(R.string.queue_save_as_playlist_name_label)) },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .focusRequester(focusRequester),
@@ -1660,7 +1660,7 @@ fun SaveQueueAsPlaylistSheet(
                             OutlinedTextField(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
-                                placeholder = { Text(stringResource(R.string.presentation_batch_e_search_songs_to_include_placeholder)) },
+                                placeholder = { Text(stringResource(R.string.queue_save_as_playlist_search_placeholder)) },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Rounded.Search,
@@ -1672,7 +1672,7 @@ fun SaveQueueAsPlaylistSheet(
                                         IconButton(onClick = { searchQuery = "" }) {
                                             Icon(
                                                 Icons.Filled.Clear,
-                                                contentDescription = stringResource(R.string.cd_clear_search)
+                                                contentDescription = stringResource(R.string.common_clear_search)
                                             )
                                         }
                                     }
@@ -1723,7 +1723,7 @@ fun SaveQueueAsPlaylistSheet(
                                 ) {
                                     Text(
                                         text = pluralStringResource(
-                                            R.plurals.presentation_batch_e_n_songs_selected,
+                                            R.plurals.queue_save_as_playlist_n_songs_selected,
                                             selectedSongIds.count { it.value },
                                             selectedSongIds.count { it.value }
                                         ),
@@ -1733,11 +1733,11 @@ fun SaveQueueAsPlaylistSheet(
                                     Text(
                                         text = if (playlistName.text.isNotBlank()) {
                                             stringResource(
-                                                R.string.presentation_batch_e_save_as_format,
+                                                R.string.queue_save_as_playlist_format,
                                                 playlistName.text
                                             )
                                         } else {
-                                            stringResource(R.string.presentation_batch_e_enter_playlist_name)
+                                            stringResource(R.string.queue_save_as_playlist_name_placeholder)
                                         },
                                         style = MaterialTheme.typography.bodySmall,
                                         maxLines = 1,
@@ -1775,7 +1775,7 @@ fun SaveQueueAsPlaylistSheet(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text(stringResource(R.string.action_save))
+                                    Text(stringResource(R.string.common_save))
                                 }
                             }
                         }
@@ -1811,7 +1811,7 @@ fun SaveQueueAsPlaylistSheet(
                                 )
                                 Text(
                                     text = stringResource(
-                                        R.string.presentation_batch_e_no_songs_match_query,
+                                        R.string.queue_save_as_playlist_search_no_match,
                                         searchQuery
                                     ),
                                     style = MaterialTheme.typography.bodyLarge,
@@ -1990,7 +1990,7 @@ fun QueuePlaylistSongItem(
             ) {
                 Icon(
                     painter = painterResource(R.drawable.rounded_close_24),
-                    contentDescription = stringResource(R.string.presentation_batch_e_cd_dismiss_song),
+                    contentDescription = stringResource(R.string.queue_cd_dismiss_song),
                     modifier = Modifier
                         .padding(end = 16.dp)
                         .graphicsLayer {
@@ -2059,7 +2059,7 @@ fun QueuePlaylistSongItem(
                     SmartImage(
                         model = song.albumArtUriString,
                         shape = albumShape,
-                        contentDescription = stringResource(R.string.cd_album_art_for_title, song.title),
+                        contentDescription = stringResource(R.string.common_album_art_for_title, song.title),
                         modifier = Modifier
                             .size(42.dp)
                             .clip(albumShape),
@@ -2115,7 +2115,7 @@ fun QueuePlaylistSongItem(
                             Icon(
                                 imageVector = Icons.Rounded.MoreVert,
                                 contentDescription = stringResource(
-                                    R.string.presentation_batch_e_more_options_for_song,
+                                    R.string.queue_more_options_for_song,
                                     song.title
                                 ),
                                 modifier = Modifier.size(24.dp)
@@ -2138,7 +2138,7 @@ fun QueuePlaylistSongItem(
                             Icon(
                                 modifier = Modifier.size(18.dp),
                                 painter = painterResource(R.drawable.rounded_close_24),
-                                contentDescription = stringResource(R.string.presentation_batch_e_cd_remove_from_playlist),
+                                contentDescription = stringResource(R.string.queue_cd_remove_from_playlist),
                             )
                         }
                     }

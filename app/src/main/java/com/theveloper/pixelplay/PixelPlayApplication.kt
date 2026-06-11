@@ -77,6 +77,8 @@ class PixelPlayApplication : Application(), ImageLoaderFactory, Configuration.Pr
     // AÑADE EL COMPANION OBJECT
     companion object {
         const val NOTIFICATION_CHANNEL_ID = "pixelplay_music_channel"
+        lateinit var instance: PixelPlayApplication
+            private set
     }
 
     private val appLifecycleObserver = object : DefaultLifecycleObserver {
@@ -90,6 +92,7 @@ class PixelPlayApplication : Application(), ImageLoaderFactory, Configuration.Pr
     }
 
     override fun onCreate() {
+        instance = this
         super.onCreate()
 
         // Benchmark variant intentionally restarts/kills app process during tests.

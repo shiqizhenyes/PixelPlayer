@@ -216,10 +216,10 @@ class LyricsStateHolder @Inject constructor(
                 LyricsSourcePreference.API_FIRST -> emptyList()
                 LyricsSourcePreference.EMBEDDED_FIRST -> listOf(
                     { readEmbeddedLyricsFromFile(song)?.let { it to R.string.lyrics_embedded_already_available } },
-                    { readLocalLyricsFile(song)?.let { it to R.string.local_lrc_already_available } }
+                    { readLocalLyricsFile(song)?.let { it to R.string.lyrics_local_lrc_already_available } }
                 )
                 LyricsSourcePreference.LOCAL_FIRST -> listOf(
-                    { readLocalLyricsFile(song)?.let { it to R.string.local_lrc_already_available } },
+                    { readLocalLyricsFile(song)?.let { it to R.string.lyrics_local_lrc_already_available } },
                     { readEmbeddedLyricsFromFile(song)?.let { it to R.string.lyrics_embedded_already_available } }
                 )
             }
@@ -343,27 +343,34 @@ class LyricsStateHolder @Inject constructor(
      */
     fun translateLyricsViaAi(currentSong: Song, lyricsObj: Lyrics?, cb: LyricsTranslationCallbacks) {
         val songId = currentSong.id.toLongOrNull() ?: return
-        val rawLyrics = currentSong.lyrics
-
-        if (rawLyrics.isNullOrBlank()) {
-            _messageEvents.tryEmit(cb.getString(R.string.lyrics_not_found))
-            return
-        }
 
         if (lyricsObj?.synced != null) {
             val hasValidTranslation = lyricsObj.synced.any { !it.translation.isNullOrBlank() }
             if (hasValidTranslation) {
-                _messageEvents.tryEmit(cb.getString(R.string.ai_lyrics_already_translated))
+                _messageEvents.tryEmit(cb.getString(R.string.lyrics_translate_already_translated))
                 return
             }
         }
 
         scope?.launch {
-            _messageEvents.emit(cb.getString(R.string.ai_lyrics_translating))
+            _messageEvents.emit(cb.getString(R.string.lyrics_translate_progress))
+
+            val rawLyrics = withContext(Dispatchers.IO) {
+                currentSong.lyrics?.takeIf { it.isNotBlank() }
+                    ?: readLocalLyricsFile(currentSong)
+                    ?: readEmbeddedLyricsFromFile(currentSong)
+                    ?: musicRepository.getStoredLyrics(currentSong)?.second
+            }
+
+            if (rawLyrics.isNullOrBlank()) {
+                _messageEvents.emit(cb.getString(R.string.lyrics_not_found))
+                return@launch
+            }
+
             val result = cb.translate(rawLyrics)
             result.onSuccess { translatedText ->
                 if (translatedText.trim() == "ALREADY_IN_TARGET_LANGUAGE") {
-                    _messageEvents.emit(cb.getString(R.string.ai_lyrics_already_in_target_language))
+                    _messageEvents.emit(cb.getString(R.string.lyrics_translate_already_in_target_language))
                     return@onSuccess
                 }
 
@@ -371,7 +378,7 @@ class LyricsStateHolder @Inject constructor(
                     val validation = LyricsImportSecurity.validateImportedLrcContent(translatedText)
                     if (validation is LyricsImportValidationResult.Valid) {
                         importLyricsFromFile(songId, validation.value, currentSong)
-                        _messageEvents.emit(cb.getString(R.string.ai_lyrics_translation_success))
+                        _messageEvents.emit(cb.getString(R.string.lyrics_translate_success))
                     } else {
                         val reason = (validation as LyricsImportValidationResult.Invalid).reason
                         val errorMsg = LyricsImportSecurity.messageFor(reason)
@@ -384,7 +391,7 @@ class LyricsStateHolder @Inject constructor(
                 if (it.message?.contains("key", ignoreCase = true) == true ||
                     it.message?.contains("config", ignoreCase = true) == true
                 ) {
-                    _messageEvents.emit(cb.getString(R.string.ai_error_api_key))
+                    _messageEvents.emit(cb.getString(R.string.ai_state_error_api_key))
                 } else {
                     _messageEvents.emit(cb.getErrorString(it.message ?: ""))
                 }

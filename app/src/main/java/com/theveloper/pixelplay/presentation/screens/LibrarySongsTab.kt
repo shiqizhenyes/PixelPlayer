@@ -232,13 +232,13 @@ fun LibrarySongsTab(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(R.string.library_error_loading_songs), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        error.localizedMessage ?: stringResource(R.string.error_unknown),
+                        error.localizedMessage ?: stringResource(R.string.common_error_unknown),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = { songs.retry() }) {
-                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.library_action_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

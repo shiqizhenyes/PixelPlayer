@@ -358,7 +358,7 @@ fun SearchScreen(
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Rounded.Search,
-                                        contentDescription = stringResource(R.string.cd_search_icon),
+                                        contentDescription = stringResource(R.string.search_cd_search_icon),
                                         tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
                                     )
@@ -379,7 +379,7 @@ fun SearchScreen(
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.Close,
-                                                contentDescription = stringResource(R.string.cd_clear_search_query),
+                                                contentDescription = stringResource(R.string.search_cd_clear_search_query),
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
                                         }
@@ -411,7 +411,7 @@ fun SearchScreen(
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.rounded_settings_24),
-                        contentDescription = stringResource(R.string.presentation_batch_d_open_settings_cd)
+                        contentDescription = stringResource(R.string.library_cd_open_settings)
                     )
                 }
             }
@@ -522,7 +522,7 @@ fun SearchScreen(
                                             if (remaining <= 0) {
                                                 playerViewModel.sendToast(
                                                     context.getString(
-                                                        R.string.presentation_batch_d_max_albums_selection,
+                                                        R.string.library_toast_max_albums_selection,
                                                         MAX_ALBUM_MULTI_SELECTION
                                                     )
                                                 )
@@ -604,7 +604,7 @@ fun SearchScreen(
                                             } else if (selectedAlbums.size >= MAX_ALBUM_MULTI_SELECTION) {
                                                 playerViewModel.sendToast(
                                                     context.getString(
-                                                        R.string.presentation_batch_d_max_albums_selection,
+                                                        R.string.library_toast_max_albums_selection,
                                                         MAX_ALBUM_MULTI_SELECTION
                                                     )
                                                 )
@@ -618,7 +618,7 @@ fun SearchScreen(
                                             } else if (selectedAlbums.size >= MAX_ALBUM_MULTI_SELECTION) {
                                                 playerViewModel.sendToast(
                                                     context.getString(
-                                                        R.string.presentation_batch_d_max_albums_selection,
+                                                        R.string.library_toast_max_albums_selection,
                                                         MAX_ALBUM_MULTI_SELECTION
                                                     )
                                                 )
@@ -962,13 +962,13 @@ fun SearchHistoryList(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                stringResource(R.string.recent_searches),
+                stringResource(R.string.search_recent_searches),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold
             )
             if (historyItems.isNotEmpty()) {
                 TextButton(onClick = onClearAllHistory) {
-                    Text(stringResource(R.string.clear_all), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.search_action_clear_all), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -1007,7 +1007,7 @@ fun SearchHistoryListItem(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Icon(
                 imageVector = Icons.Rounded.History,
-                contentDescription = stringResource(R.string.cd_search_history_icon),
+                contentDescription = stringResource(R.string.search_cd_search_history_icon),
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1022,7 +1022,7 @@ fun SearchHistoryListItem(
         IconButton(onClick = { onHistoryDelete(item.query) }) {
             Icon(
                 imageVector = Icons.Rounded.DeleteForever,
-                contentDescription = stringResource(R.string.cd_delete_search_history_item),
+                contentDescription = stringResource(R.string.search_cd_delete_search_history_item),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
@@ -1040,7 +1040,7 @@ fun EmptySearchResults(searchQuery: String, colorScheme: ColorScheme) {
     ) {
         Icon(
             imageVector = Icons.Rounded.Search,
-            contentDescription = stringResource(R.string.cd_no_search_results),
+            contentDescription = stringResource(R.string.search_cd_no_results),
             modifier = Modifier
                 .size(80.dp)
                 .padding(bottom = 16.dp),
@@ -1453,7 +1453,7 @@ fun SearchResultAlbumItem(
                         contentColor = MaterialTheme.colorScheme.onSecondary
                     )
                 ) {
-                    Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.cd_play_album), modifier = Modifier.size(24.dp))
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = stringResource(R.string.common_play_album), modifier = Modifier.size(24.dp))
                 }
             }
             if (isSelectionMode && isSelected) {
@@ -1705,10 +1705,18 @@ fun SearchFilterChip(
 ) {
     val selected = filterType == currentFilter
 
+    val labelResId = when (filterType) {
+        SearchFilterType.ALL -> R.string.common_all
+        SearchFilterType.SONGS -> R.string.library_tab_songs
+        SearchFilterType.ALBUMS -> R.string.library_tab_albums
+        SearchFilterType.ARTISTS -> R.string.library_tab_artists
+        SearchFilterType.PLAYLISTS -> R.string.library_tab_playlists
+    }
+
     FilterChip(
         selected = selected,
         onClick = { playerViewModel.updateSearchFilter(filterType) },
-        label = { Text(filterType.name.lowercase().replaceFirstChar { it.titlecase() }) },
+        label = { Text(stringResource(labelResId)) },
         modifier = modifier,
         shape = CircleShape,
         border = BorderStroke(

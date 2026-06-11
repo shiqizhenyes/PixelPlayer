@@ -228,15 +228,15 @@ fun LibraryAlbumsTab(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.library_error_loading_albums), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.library_album_detail_error_loading_albums), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        error.localizedMessage ?: stringResource(R.string.error_unknown),
+                        error.localizedMessage ?: stringResource(R.string.common_error_unknown),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = { albums.retry() }) {
-                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.library_action_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -539,15 +539,15 @@ fun LibraryArtistsTab(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(R.string.library_error_loading_artists), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.library_artist_error_loading_artists), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        error.localizedMessage ?: stringResource(R.string.error_unknown),
+                        error.localizedMessage ?: stringResource(R.string.common_error_unknown),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(onClick = { artists.retry() }) {
-                        Text(stringResource(R.string.library_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.library_action_retry), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

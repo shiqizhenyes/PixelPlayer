@@ -159,31 +159,31 @@ fun PlaylistDetailScreen(
     val uiState by playlistViewModel.uiState.collectAsStateWithLifecycle()
     val playerStableState by playerViewModel.stablePlayerState.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val fallbackPlaylistName = stringResource(R.string.shortcut_playlist_short)
-    val sortSongsLabel = stringResource(R.string.presentation_batch_b_sort_songs)
-    val moreOptionsLabel = stringResource(R.string.presentation_batch_b_more_options)
-    val playItLabel = stringResource(R.string.presentation_batch_b_play_it)
-    val shuffleLabel = stringResource(R.string.shortcut_shuffle_short)
-    val addSongsCd = stringResource(R.string.presentation_batch_b_add_songs)
-    val addLabel = stringResource(R.string.presentation_batch_b_add)
-    val removeLabel = stringResource(R.string.cd_remove)
-    val removeSongsCd = stringResource(R.string.presentation_batch_b_remove_songs)
-    val reorderLabel = stringResource(R.string.presentation_batch_b_reorder)
-    val reorderSongsCd = stringResource(R.string.presentation_batch_b_reorder_songs)
-    val reorderSongCd = stringResource(R.string.presentation_batch_b_reorder_song)
-    val playlistEmptyTitle = stringResource(R.string.presentation_batch_b_playlist_empty_title)
-    val playlistEmptyFolder = stringResource(R.string.presentation_batch_b_playlist_empty_folder_body)
-    val playlistEmptyAddHint = stringResource(R.string.presentation_batch_b_playlist_empty_add_hint)
-    val playlistOptionsTitle = stringResource(R.string.presentation_batch_b_playlist_options_title)
-    val editPlaylistLabel = stringResource(R.string.presentation_batch_b_edit_playlist)
-    val deletePlaylistLabel = stringResource(R.string.presentation_batch_b_delete_playlist)
-    val setDefaultTransitionLabel = stringResource(R.string.presentation_batch_b_set_default_transition)
-    val exportPlaylistLabel = stringResource(R.string.presentation_batch_b_export_playlist)
-    val deletePlaylistConfirmTitle = stringResource(R.string.presentation_batch_b_delete_playlist_confirm_title)
-    val deletePlaylistConfirmBody = stringResource(R.string.presentation_batch_b_delete_playlist_confirm_body)
-    val sortSheetTitle = stringResource(R.string.presentation_batch_b_sort_songs)
-    val toastAddedToQueue = stringResource(R.string.toast_added_to_queue)
-    val toastPlayingNext = stringResource(R.string.toast_playing_next)
+    val fallbackPlaylistName = stringResource(R.string.common_playlist)
+    val sortSongsLabel = stringResource(R.string.playlist_sort_songs_title)
+    val moreOptionsLabel = stringResource(R.string.playlist_more_options_title)
+    val playItLabel = stringResource(R.string.playlist_action_play_it)
+    val shuffleLabel = stringResource(R.string.common_shuffle)
+    val addSongsCd = stringResource(R.string.playlist_cd_add_songs)
+    val addLabel = stringResource(R.string.playlist_action_add_songs)
+    val removeLabel = stringResource(R.string.playlist_action_remove_songs)
+    val removeSongsCd = stringResource(R.string.playlist_cd_remove_songs)
+    val reorderLabel = stringResource(R.string.playlist_action_reorder_songs)
+    val reorderSongsCd = stringResource(R.string.playlist_cd_reorder_songs)
+    val reorderSongCd = stringResource(R.string.playlist_cd_reorder_songs)
+    val playlistEmptyTitle = stringResource(R.string.playlist_empty_title)
+    val playlistEmptyFolder = stringResource(R.string.playlist_empty_folder_label)
+    val playlistEmptyAddHint = stringResource(R.string.playlist_empty_add_hint)
+    val playlistOptionsTitle = stringResource(R.string.playlist_options_title)
+    val editPlaylistLabel = stringResource(R.string.playlist_action_edit_playlist)
+    val deletePlaylistLabel = stringResource(R.string.playlist_action_delete_playlist)
+    val setDefaultTransitionLabel = stringResource(R.string.playlist_action_set_default_transition)
+    val exportPlaylistLabel = stringResource(R.string.playlist_action_export_playlist)
+    val deletePlaylistConfirmTitle = stringResource(R.string.playlist_dialog_delete_title)
+    val deletePlaylistConfirmBody = stringResource(R.string.playlist_dialog_delete_body)
+    val sortSheetTitle = stringResource(R.string.playlist_sort_songs_title)
+    val toastAddedToQueue = stringResource(R.string.library_toast_added_to_queue)
+    val toastPlayingNext = stringResource(R.string.library_toast_playing_next)
     val currentPlaylist = uiState.currentPlaylistDetails
     val isFolderPlaylist = currentPlaylist?.id?.startsWith(FOLDER_PLAYLIST_PREFIX) == true
     val songsInPlaylist = uiState.currentPlaylistSongs
@@ -282,7 +282,7 @@ fun PlaylistDetailScreen(
                     Text(
                         modifier = Modifier.padding(start = 8.dp),
                         text = stringResource(
-                            R.string.presentation_batch_f_status_bullet_step,
+                            R.string.playlist_song_duration_line,
                             formatSongCount(songsInPlaylist.size),
                             formatTotalDuration(songsInPlaylist)
                         ),
@@ -299,7 +299,7 @@ fun PlaylistDetailScreen(
                         ),
                         onClick = onBackClick
                     ) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.auth_cd_back))
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.common_back))
                     }
                 },
                 actions = {
@@ -391,7 +391,7 @@ fun PlaylistDetailScreen(
                     ) {
                         Icon(
                             Icons.Rounded.PlayArrow,
-                            contentDescription = stringResource(R.string.cd_play),
+                            contentDescription = stringResource(R.string.common_play),
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(Modifier.size(ButtonDefaults.IconSpacing))
@@ -943,12 +943,12 @@ fun PlaylistDetailScreen(
                         showDeleteConfirmation = false
                     }
                 ) {
-                    Text(stringResource(R.string.delete_action), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.common_delete), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmation = false }) {
-                    Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.common_cancel), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         )
@@ -1154,35 +1154,4 @@ private fun PlaylistActionItem(
             color = MaterialTheme.colorScheme.onSurface
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-// SongPickerBottomSheet moved to com.theveloper.pixelplay.presentation.components
-fun RenamePlaylistDialog(currentName: String, onDismiss: () -> Unit, onRename: (String) -> Unit) {
-    var newName by remember { mutableStateOf(TextFieldValue(currentName)) }
-    val renameTitle = stringResource(R.string.presentation_batch_b_rename_playlist_dialog_title)
-    val newNameLabel = stringResource(R.string.presentation_batch_b_new_name)
-    val renameAction = stringResource(R.string.action_rename)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(renameTitle) },
-        text = {
-            OutlinedTextField(
-                value = newName,
-                onValueChange = { newName = it },
-                label = { Text(newNameLabel) },
-                shape = CircleShape,
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = { if (newName.text.isNotBlank()) onRename(newName.text) },
-                enabled = newName.text.isNotBlank() && newName.text != currentName
-            ) { Text(renameAction, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), maxLines = 1, overflow = TextOverflow.Ellipsis) } }
-    )
 }

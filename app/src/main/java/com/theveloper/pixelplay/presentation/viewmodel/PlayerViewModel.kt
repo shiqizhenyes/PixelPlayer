@@ -745,11 +745,11 @@ class PlayerViewModel @Inject constructor(
                 if (index != -1) {
                     _scrollToIndexEvent.emit(index)
                 } else {
-                    sendToast(context.getString(R.string.player_song_not_found_in_list))
+                    sendToast(context.getString(R.string.player_view_model_song_not_found_in_list))
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Failed to locate current song")
-                sendToast(context.getString(R.string.player_could_not_locate_song))
+                sendToast(context.getString(R.string.player_view_model_could_not_locate_song))
             }
         }
     }
@@ -1604,7 +1604,7 @@ class PlayerViewModel @Inject constructor(
                     playSongsShuffled(songs, "All Songs (Shuffled)", startAtZero = true)
                 } else {
                     Timber.w("[TileDebug] No songs found even after sync - library may be empty")
-                    sendToast(context.getString(R.string.player_no_songs_in_library_toast))
+                    sendToast(context.getString(R.string.player_view_model_no_songs_in_library_toast))
                 }
             }
         }
@@ -3121,11 +3121,11 @@ class PlayerViewModel @Inject constructor(
                             playerCtrl.pause()
 
                             val finishedSongTitle = libraryStateHolder.allSongsById.value[previousSongId]?.title
-                                ?: context.getString(R.string.player_default_track_title)
+                                ?: context.getString(R.string.player_view_model_default_track_title)
 
                             viewModelScope.launch {
                                 _toastEvents.emit(
-                                    context.getString(R.string.player_playback_stopped_eot, finishedSongTitle),
+                                    context.getString(R.string.player_view_model_playback_stopped_eot, finishedSongTitle),
                                 )
                             }
                             cancelSleepTimer(suppressDefaultToast = true)
@@ -3267,7 +3267,7 @@ class PlayerViewModel @Inject constructor(
             throwIfDirectPlaybackRequestIsStale(requestToken)
 
             if (validSongs.isEmpty()) {
-                _toastEvents.emit(context.getString(R.string.no_valid_songs))
+                _toastEvents.emit(context.getString(R.string.player_view_model_no_valid_songs))
                 return@launch
             }
 
@@ -3348,7 +3348,7 @@ class PlayerViewModel @Inject constructor(
             val result = queueStateHolder.prepareShuffledQueueSuspending(songsToPlay, queueName, startAtZero)
             throwIfDirectPlaybackRequestIsStale(requestToken)
             if (result == null) {
-                sendToast(context.getString(R.string.player_no_songs_to_shuffle))
+                sendToast(context.getString(R.string.player_view_model_no_songs_to_shuffle))
                 return@launch
             }
 
@@ -3864,7 +3864,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             val n = songs.size
             _toastEvents.emit(
-                context.resources.getQuantityString(R.plurals.n_songs_added_to_queue, n, n),
+                context.resources.getQuantityString(R.plurals.player_view_model_n_songs_added_to_queue, n, n),
             )
         }
         multiSelectionStateHolder.clearSelection()
@@ -3880,7 +3880,7 @@ class PlayerViewModel @Inject constructor(
         viewModelScope.launch {
             val n = songs.size
             _toastEvents.emit(
-                context.resources.getQuantityString(R.plurals.n_songs_will_play_next, n, n),
+                context.resources.getQuantityString(R.plurals.player_view_model_n_songs_will_play_next, n, n),
             )
         }
         multiSelectionStateHolder.clearSelection()
@@ -3892,14 +3892,14 @@ class PlayerViewModel @Inject constructor(
             try {
                 val resolvedSelection = resolveSelectedAlbumSongs(albums)
                 if (resolvedSelection.songs.isEmpty()) {
-                    _toastEvents.emit(context.getString(R.string.player_no_playable_songs_in_albums))
+                    _toastEvents.emit(context.getString(R.string.player_view_model_no_playable_songs_in_albums))
                     return@launch
                 }
 
                 val queueName = if (resolvedSelection.albums.size == 1) {
                     resolvedSelection.albums.first().title
                 } else {
-                    context.getString(R.string.player_queue_name_selected_albums)
+                    context.getString(R.string.player_view_model_queue_name_selected_albums)
                 }
 
                 playSongs(resolvedSelection.songs, resolvedSelection.songs.first(), queueName, null)
@@ -3907,12 +3907,12 @@ class PlayerViewModel @Inject constructor(
 
                 if (resolvedSelection.wasTrimmed) {
                     _toastEvents.emit(
-                        context.getString(R.string.player_only_first_n_albums_queued, MAX_ALBUM_BATCH_SELECTION),
+                        context.getString(R.string.player_view_model_only_first_n_albums_queued, MAX_ALBUM_BATCH_SELECTION),
                     )
                 } else {
                     _toastEvents.emit(
                         context.getString(
-                            R.string.player_albums_queued_format,
+                            R.string.player_view_model_albums_queued_format,
                             resolvedSelection.albums.size,
                             resolvedSelection.songs.size,
                         ),
@@ -3920,7 +3920,7 @@ class PlayerViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Error playing selected albums", e)
-                _toastEvents.emit(context.getString(R.string.player_could_not_queue_albums))
+                _toastEvents.emit(context.getString(R.string.player_view_model_could_not_queue_albums))
             }
         }
     }
@@ -3998,10 +3998,10 @@ class PlayerViewModel @Inject constructor(
             }
             if (likedCount > 0) {
                 _toastEvents.emit(
-                    context.resources.getQuantityString(R.plurals.n_songs_added_to_favorites, likedCount, likedCount),
+                    context.resources.getQuantityString(R.plurals.player_view_model_n_songs_added_to_favorites, likedCount, likedCount),
                 )
             } else {
-                _toastEvents.emit(context.getString(R.string.player_all_songs_already_in_favorites))
+                _toastEvents.emit(context.getString(R.string.player_view_model_all_songs_already_in_favorites))
             }
             multiSelectionStateHolder.clearSelection()
         }
@@ -4025,13 +4025,13 @@ class PlayerViewModel @Inject constructor(
             if (unlikedCount > 0) {
                 _toastEvents.emit(
                     context.resources.getQuantityString(
-                        R.plurals.n_songs_removed_from_favorites,
+                        R.plurals.player_view_model_n_songs_removed_from_favorites,
                         unlikedCount,
                         unlikedCount,
                     ),
                 )
             } else {
-                _toastEvents.emit(context.getString(R.string.player_no_songs_were_in_favorites))
+                _toastEvents.emit(context.getString(R.string.player_view_model_no_songs_were_in_favorites))
             }
             multiSelectionStateHolder.clearSelection()
         }
@@ -4043,7 +4043,7 @@ class PlayerViewModel @Inject constructor(
      */
     fun shareSelectedAsZip(songs: List<Song>) {
         viewModelScope.launch {
-            _toastEvents.emit(context.getString(R.string.player_creating_zip))
+            _toastEvents.emit(context.getString(R.string.player_view_model_creating_zip))
 
             val result = ZipShareHelper.createAndShareZip(context, songs)
 
@@ -4051,7 +4051,7 @@ class PlayerViewModel @Inject constructor(
                 multiSelectionStateHolder.clearSelection()
             }.onFailure { error ->
                 _toastEvents.emit(
-                    context.getString(R.string.player_share_zip_failed_format, error.localizedMessage ?: ""),
+                    context.getString(R.string.player_view_model_share_zip_failed_format, error.localizedMessage ?: ""),
                 )
                 println(
                     "Failed to share: ${error.localizedMessage}"
@@ -4103,7 +4103,7 @@ class PlayerViewModel @Inject constructor(
                     playSongs(songs, songs.first(), "Selected Genres")
                     _isSheetVisible.value = true
                 } else {
-                    _toastEvents.emit(context.getString(R.string.player_no_playable_songs_in_genres))
+                    _toastEvents.emit(context.getString(R.string.player_view_model_no_playable_songs_in_genres))
                 }
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Error playing selected genres", e)
@@ -4121,10 +4121,10 @@ class PlayerViewModel @Inject constructor(
                     songs.forEach { addSongToQueue(it) }
                     val n = songs.size
                     _toastEvents.emit(
-                        context.resources.getQuantityString(R.plurals.n_songs_added_to_queue, n, n),
+                        context.resources.getQuantityString(R.plurals.player_view_model_n_songs_added_to_queue, n, n),
                     )
                 } else {
-                    _toastEvents.emit(context.getString(R.string.player_no_playable_songs_in_genres))
+                    _toastEvents.emit(context.getString(R.string.player_view_model_no_playable_songs_in_genres))
                 }
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Error adding selected genres to queue", e)
@@ -4142,10 +4142,10 @@ class PlayerViewModel @Inject constructor(
                     songs.reversed().forEach { addSongNextToQueue(it) }
                     val n = songs.size
                     _toastEvents.emit(
-                        context.resources.getQuantityString(R.plurals.n_songs_will_play_next, n, n),
+                        context.resources.getQuantityString(R.plurals.player_view_model_n_songs_will_play_next, n, n),
                     )
                 } else {
-                    _toastEvents.emit(context.getString(R.string.player_no_playable_songs_in_genres))
+                    _toastEvents.emit(context.getString(R.string.player_view_model_no_playable_songs_in_genres))
                 }
             } catch (e: Exception) {
                 Log.e("PlayerViewModel", "Error adding selected genres as next", e)
@@ -4912,7 +4912,7 @@ class PlayerViewModel @Inject constructor(
             cb = LyricsTranslationCallbacks(
                 translate = { rawLyrics -> aiStateHolder.translateLyrics(rawLyrics) },
                 getString = { resId -> context.getString(resId) },
-                getErrorString = { detail -> context.getString(R.string.ai_error_generic, detail) }
+                getErrorString = { detail -> context.getString(R.string.ai_state_error_generic, detail) }
             )
         )
     }
