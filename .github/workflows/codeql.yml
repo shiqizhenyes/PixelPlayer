@@ -32,7 +32,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          cache-provider: 'gradle'
+          cache-provider: 'enhanced'
   
       - name: Pin Kotlin version for CodeQL compatibility
         # CodeQL does not yet support Kotlin 2.4.0 (max: 2.3.x).
