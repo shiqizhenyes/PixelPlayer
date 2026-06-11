@@ -22,6 +22,7 @@ import com.theveloper.pixelplay.utils.LyricsImportSecurity
 import com.theveloper.pixelplay.utils.LyricsImportValidationResult
 import com.theveloper.pixelplay.utils.LogUtils
 import com.theveloper.pixelplay.utils.LyricsUtils
+import com.theveloper.pixelplay.utils.MultiLangRomanizer
 import com.theveloper.pixelplay.utils.NetworkRetryUtils
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -132,9 +133,9 @@ class LyricsRepositoryImpl @Inject constructor(
         private const val NETWORK_RETRY_ATTEMPTS = 3
         private const val NETWORK_RETRY_INITIAL_DELAY_MS = 500L
 
-        private val BRACKETED_QUALIFIER_REGEX = Regex("""[\(\[\{]([^)\]\}]*)[\)\]\}]""")
+        private val BRACKETED_QUALIFIER_REGEX = Regex("""[\(\[\{\uFF08\uFF3B\uFF5B\u3010\u300E\u300C\u3014\u3008\u300A]([^)\]\}\uFF09\uFF3D\uFF5D\u3011\u300F\u300D\u3015\u3009\u300B]*)[\)\]\}\uFF09\uFF3D\uFF5D\u3011\u300F\u300D\u3015\u3009\u300B]""")
         private val FEATURE_QUALIFIER_REGEX = Regex("""\b(feat(?:uring)?|ft)\.?\b""", RegexOption.IGNORE_CASE)
-        private val TITLE_SEPARATOR_REGEX = Regex("""\s+[-\u2013\u2014:]\s+""")
+        private val TITLE_SEPARATOR_REGEX = Regex("""\s*[-\u2013\u2014:\uFF0D\u00B7\u30FB]\s*""")
         private val TIMING_VARIANT_KEYWORDS = setOf(
             "remix",
             "mix",
@@ -159,7 +160,28 @@ class LyricsRepositoryImpl @Inject constructor(
             "version",
             "rework",
             "flip",
-            "refix"
+            "refix",
+            "opening",
+            "ending",
+            "op",
+            "ed",
+            "theme",
+            "tv",
+            "size",
+            "ver",
+            "full",
+            "movie",
+            "ost",
+            "soundtrack",
+            "background",
+            "bgm",
+            "short",
+            "long",
+            "reprise",
+            "intro",
+            "outro",
+            "medley",
+            "bonus"
         )
         private val TITLE_DROP_QUALIFIERS = setOf(
             "explicit",
@@ -167,7 +189,10 @@ class LyricsRepositoryImpl @Inject constructor(
             "mono",
             "stereo",
             "official audio",
-            "official video"
+            "official video",
+            "hi-res",
+            "high-res",
+            "mqa"
         )
         private val UNKNOWN_ARTISTS = setOf(
             "",
@@ -458,10 +483,10 @@ class LyricsRepositoryImpl @Inject constructor(
         updateLastApiCall("lrclib", System.currentTimeMillis())
 
         try {
-            val cleanArtist = song.displayArtist.trim().replace(Regex("\\(.*?\\)"), "").trim()
-            val cleanTitle = song.title.trim().replace(Regex("\\(.*?\\)"), "").trim()
-            val simplifiedArtist = cleanArtist.split(" feat.", " ft.", " featuring").first().trim()
-            val simplifiedTitle = cleanTitle.split(" feat.", " ft.", " featuring").first().trim()
+            val cleanArtist = song.displayArtist.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
+            val cleanTitle = song.title.trim().replace(BRACKETED_QUALIFIER_REGEX, "").trim()
+            val simplifiedArtist = cleanArtist.split(" feat.", " ft.", " featuring", " & ", " , ").first().trim()
+            val simplifiedTitle = cleanTitle.split(" feat.", " ft.", " featuring", " (").first().trim()
             val useSimplifiedStrategy =
                 simplifiedArtist != cleanArtist || simplifiedTitle != cleanTitle
 
@@ -483,6 +508,16 @@ class LyricsRepositoryImpl @Inject constructor(
                         }
                     )
                 }
+
+                // Romanized search strategy for non-Latin titles
+                if (MultiLangRomanizer.isScriptThatNeedsRomanization(cleanTitle)) {
+                    val romanTitle = romanizeForMatch(cleanTitle)
+                    if (romanTitle != cleanTitle) {
+                        add(RemoteSearchStrategy("romanized_track") {
+                            lrcLibApiService.searchLyrics(trackName = romanTitle, artistName = cleanArtist)
+                        })
+                    }
+                }
                 
                 // Smart title cleanup strategy (removes leading digits/spaces and truncates at -, (, ))
                 val smartTitle = cleanTitleSmart(cleanTitle)
@@ -498,7 +533,7 @@ class LyricsRepositoryImpl @Inject constructor(
 
             // Strategy 4: Aggressive fallback - remove artist and trim title at separators
             if (results.isEmpty()) {
-                 val separators = charArrayOf('-', ',', '(', ')', '$', '#', ':', '%')
+                 val separators = charArrayOf('-', ',', '(', ')', '$', '#', ':', '%', '\uFF0D', '\u00B7', '\u30FB')
                  val index = cleanTitle.indexOfAny(separators)
                  if (index != -1) {
                      val superCleanTitle = cleanTitle.substring(0, index).trim()
@@ -638,12 +673,29 @@ class LyricsRepositoryImpl @Inject constructor(
 
         if (songBase == responseBase) return 70
 
+        // Attempt Romanized match for non-Latin scripts
+        if (MultiLangRomanizer.isScriptThatNeedsRomanization(songBase) || 
+            MultiLangRomanizer.isScriptThatNeedsRomanization(responseBase)) {
+            val songRoman = normalizeForMatch(romanizeForMatch(songBase))
+            val responseRoman = normalizeForMatch(romanizeForMatch(responseBase))
+            if (songRoman == responseRoman && songRoman.isNotBlank()) return 65
+        }
+
         val songTokens = matchTokens(songBase)
         val responseTokens = matchTokens(responseBase)
         if (songTokens.isEmpty() || responseTokens.isEmpty()) return null
 
         if (songTokens.size == 1 || responseTokens.size == 1) {
-            return if (songTokens == responseTokens) 60 else null
+            if (songTokens == responseTokens) return 60
+            
+            // Fuzzy match for single token CJK: if one contains the other
+            val s1 = songBase.replace(" ", "")
+            val s2 = responseBase.replace(" ", "")
+            if (s1.isNotBlank() && s2.isNotBlank()) {
+                if (s1.contains(s2) || s2.contains(s1)) return 55
+            }
+            
+            return null
         }
 
         if (containsWholePhrase(responseBase, songBase) || containsWholePhrase(songBase, responseBase)) {
@@ -671,6 +723,15 @@ class LyricsRepositoryImpl @Inject constructor(
         if (songBase.isBlank() || responseBase.isBlank()) return null
 
         if (songBase == responseBase) return 30
+        
+        // Attempt Romanized match
+        if (MultiLangRomanizer.isScriptThatNeedsRomanization(songBase) || 
+            MultiLangRomanizer.isScriptThatNeedsRomanization(responseBase)) {
+            val songRoman = normalizeForMatch(romanizeForMatch(songBase))
+            val responseRoman = normalizeForMatch(romanizeForMatch(responseBase))
+            if (songRoman == responseRoman && songRoman.isNotBlank()) return 28
+        }
+
         if (containsWholePhrase(responseBase, songBase) || containsWholePhrase(songBase, responseBase)) {
             return 22
         }
@@ -1621,16 +1682,25 @@ class LyricsRepositoryImpl @Inject constructor(
 
     private fun cleanTitleSmart(title: String): String {
         // 1. Remove leading digits/spaces/dots/hyphens (e.g., "01 ", "01. ", "01 - ")
-        var cleaned = title.replace(Regex("^[\\d\\s.\\-]+"), "")
+        var cleaned = title.replace(Regex("^[\\d\\s.\\-\\uFF0D]+"), "")
         
-        // 2. Truncate at first special char (-, (, ))
+        // 2. Truncate at first special char (-, (, ), Asian brackets)
         // "Taare Ginn - Envy" -> "Taare Ginn "
         // "Song (Feat. X)" -> "Song "
-        val splitRegex = Regex("[-()]")
+        val splitRegex = Regex("""[-\(\[\{\uFF08\uFF3B\uFF5B\u3010\u300E\u300C\u3014\u3008\u300A]""")
         cleaned = cleaned.split(splitRegex).firstOrNull() ?: cleaned
         
         // 3. Trim whitespace
         return cleaned.trim()
+    }
+
+    private fun romanizeForMatch(text: String): String {
+        return when {
+            MultiLangRomanizer.isJapanese(text) -> MultiLangRomanizer.romanizeJapanese(text) ?: text
+            MultiLangRomanizer.isChinese(text) -> MultiLangRomanizer.romanizeChinese(text) ?: text
+            MultiLangRomanizer.isKorean(text) -> MultiLangRomanizer.romanizeKorean(text)
+            else -> text
+        }
     }
 }
 
