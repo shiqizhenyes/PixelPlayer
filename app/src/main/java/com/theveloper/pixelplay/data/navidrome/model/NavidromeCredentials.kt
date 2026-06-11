@@ -76,15 +76,10 @@ data class NavidromeCredentials(
         if (httpUrl.username.isNotEmpty() || httpUrl.password.isNotEmpty()) {
             return "Server URL must not include embedded credentials."
         }
-        if (requireHttps && !httpUrl.isHttps) {
-            val host = httpUrl.host
-            val isPrivate = host == "localhost" ||
-                    host == "127.0.0.1" ||
-                    host.endsWith(".local") ||
-                    CloudStreamSecurity.isPrivateIpv4Literal(host)
-            if (!isPrivate) {
-                return "Use an https:// server URL for remote Navidrome/Subsonic servers. HTTP is only allowed for local network addresses."
-            }
+        if (requireHttps && !httpUrl.isHttps &&
+            !CloudStreamSecurity.isLocalOrPrivateHost(httpUrl.host)
+        ) {
+            return "Use an https:// server URL for remote Navidrome/Subsonic servers. HTTP is only allowed for local network addresses."
         }
         return null
     }
