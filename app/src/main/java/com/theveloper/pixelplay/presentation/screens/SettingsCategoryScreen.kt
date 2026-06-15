@@ -950,6 +950,8 @@ fun SettingsCategoryScreen(
                                     com.theveloper.pixelplay.data.ai.provider.AiProvider.GLM -> stringResource(R.string.settings_ai_source_glm)
                                     com.theveloper.pixelplay.data.ai.provider.AiProvider.OPENAI -> stringResource(R.string.settings_ai_source_openai)
                                     com.theveloper.pixelplay.data.ai.provider.AiProvider.OPENROUTER -> "OpenRouter (openrouter.ai)"
+                                    com.theveloper.pixelplay.data.ai.provider.AiProvider.OLLAMA -> "Ollama (cloud)"
+                                    com.theveloper.pixelplay.data.ai.provider.AiProvider.CUSTOM -> "Custom Provider"
                                 }
                                 
                                 AiApiKeyItem(
@@ -999,15 +1001,27 @@ fun SettingsCategoryScreen(
                                             )
                                         }
                                     } else if (uiState.availableModels.isNotEmpty()) {
-                                        ThemeSelectorItem(
+                                        SearchableModelSelector(
                                             label = stringResource(R.string.settings_ai_model_title),
                                             description = stringResource(R.string.settings_ai_model_subtitle),
-                                            options = uiState.availableModels.associate { it.name to it.displayName },
-                                            selectedKey = currentAiModel.ifEmpty { uiState.availableModels.firstOrNull()?.name ?: "" },
-                                            onSelectionChanged = { settingsViewModel.onAiModelChange(it) },
+                                            models = uiState.availableModels,
+                                            selectedModelName = currentAiModel.ifEmpty { uiState.availableModels.firstOrNull()?.name ?: "" },
+                                            onModelSelected = { settingsViewModel.onAiModelChange(it) },
                                             leadingIcon = { Icon(Icons.Rounded.Science, null, tint = MaterialTheme.colorScheme.secondary) }
                                         )
                                     }
+                                }
+                            }
+
+                            // Base URL Section (only for configurable URL providers)
+                            if (provider.hasConfigurableUrl) {
+                                SettingsSubsection(title = "API Base URL") {
+                                    AiApiKeyItem(
+                                        apiKey = customBaseUrl,
+                                        onApiKeySave = { settingsViewModel.onCustomBaseUrlChange(it) },
+                                        title = "Base URL",
+                                        subtitle = "e.g. https://api.example.com/v1"
+                                    )
                                 }
                             }
 
