@@ -1040,6 +1040,140 @@ fun SettingsCategoryScreen(
                                 )
                             }
 
+                            // Generation Parameters Section
+                            SettingsSubsection(title = "Generation Parameters") {
+                                SliderSettingsItem(
+                                    label = "Temperature",
+                                    value = settingsViewModel.aiTemperature.collectAsStateWithLifecycle().value,
+                                    valueRange = 0.0f..2.0f,
+                                    steps = 20,
+                                    onValueChange = { settingsViewModel.onAiTemperatureChange(it) },
+                                    valueText = { String.format(Locale.US, "%.2f", it) }
+                                )
+                                Text(
+                                    text = "Controls randomness. Lower = more deterministic, higher = more creative.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                )
+                                SliderSettingsItem(
+                                    label = "Top P",
+                                    value = settingsViewModel.aiTopP.collectAsStateWithLifecycle().value,
+                                    valueRange = 0.0f..1.0f,
+                                    steps = 20,
+                                    onValueChange = { settingsViewModel.onAiTopPChange(it) },
+                                    valueText = { String.format(Locale.US, "%.2f", it) }
+                                )
+                                Text(
+                                    text = "Nucleus sampling. Higher = more diverse tokens considered.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                )
+                                SliderSettingsItem(
+                                    label = "Top K",
+                                    value = settingsViewModel.aiTopK.collectAsStateWithLifecycle().value.toFloat(),
+                                    valueRange = 1f..100f,
+                                    steps = 99,
+                                    onValueChange = { settingsViewModel.onAiTopKChange(it.toInt()) },
+                                    valueText = { it.toInt().toString() }
+                                )
+                                Text(
+                                    text = "Limits token selection to the K most likely candidates.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                )
+                                SliderSettingsItem(
+                                    label = "Max Output Tokens",
+                                    value = settingsViewModel.aiMaxTokens.collectAsStateWithLifecycle().value.toFloat(),
+                                    valueRange = 128f..8192f,
+                                    steps = 63,
+                                    onValueChange = { settingsViewModel.onAiMaxTokensChange(it.toInt()) },
+                                    valueText = { it.toInt().toString() }
+                                )
+                                Text(
+                                    text = "Maximum length of the AI response. Higher = longer but more expensive.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                )
+                                SliderSettingsItem(
+                                    label = "Presence Penalty",
+                                    value = settingsViewModel.aiPresencePenalty.collectAsStateWithLifecycle().value,
+                                    valueRange = -2.0f..2.0f,
+                                    steps = 40,
+                                    onValueChange = { settingsViewModel.onAiPresencePenaltyChange(it) },
+                                    valueText = { String.format(Locale.US, "%.1f", it) }
+                                )
+                                Text(
+                                    text = "Penalizes repeated topics. Positive = more diverse topics.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                )
+                                SliderSettingsItem(
+                                    label = "Frequency Penalty",
+                                    value = settingsViewModel.aiFrequencyPenalty.collectAsStateWithLifecycle().value,
+                                    valueRange = -2.0f..2.0f,
+                                    steps = 40,
+                                    onValueChange = { settingsViewModel.onAiFrequencyPenaltyChange(it) },
+                                    valueText = { String.format(Locale.US, "%.1f", it) }
+                                )
+                                Text(
+                                    text = "Penalizes repeated phrases. Positive = more natural language.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                )
+                            }
+
+                            // Song Data Configuration Section
+                            SettingsSubsection(title = "Song Data Configuration") {
+                                val aiSampleSize by settingsViewModel.aiSampleSize.collectAsStateWithLifecycle()
+                                SliderSettingsItem(
+                                    label = "Sample Size",
+                                    value = aiSampleSize.toFloat(),
+                                    valueRange = 10f..120f,
+                                    steps = 11,
+                                    onValueChange = { settingsViewModel.onAiSampleSizeChange(it.toInt()) },
+                                    valueText = { "${it.toInt()} songs" }
+                                )
+                                Text(
+                                    text = "Number of songs sent to the AI for playlist generation. More = better context but higher cost.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+                                )
+                                ThemeSelectorItem(
+                                    label = "Digest Detail",
+                                    description = "Controls how much listening history data is included",
+                                    options = mapOf("safe" to "Concise (faster)", "full" to "Full (better quality)"),
+                                    selectedKey = settingsViewModel.aiDigestMode.collectAsStateWithLifecycle().value,
+                                    onSelectionChanged = { settingsViewModel.onAiDigestModeChange(it) },
+                                    leadingIcon = {
+                                        Icon(
+                                            painterResource(R.drawable.rounded_monitoring_24),
+                                            null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                )
+                                SwitchSettingItem(
+                                    title = "Extended Song Fields",
+                                    subtitle = "Include album, year, and genre info in song data sent to AI",
+                                    checked = settingsViewModel.aiIncludeExtendedFields.collectAsStateWithLifecycle().value,
+                                    onCheckedChange = { settingsViewModel.onAiIncludeExtendedFieldsChange(it) },
+                                    leadingIcon = {
+                                        Icon(
+                                            painterResource(R.drawable.rounded_music_note_24),
+                                            null,
+                                            tint = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
+                                )
+                            }
+
                             Spacer(modifier = Modifier.height(16.dp))
 
                             SettingsSubsection(title = stringResource(R.string.settings_ai_usage_report_section)) {
