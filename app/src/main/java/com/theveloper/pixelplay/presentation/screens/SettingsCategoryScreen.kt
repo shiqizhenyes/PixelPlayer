@@ -1019,7 +1019,7 @@ fun SettingsCategoryScreen(
                             if (provider.hasConfigurableUrl) {
                                 SettingsSubsection(title = "API Base URL") {
                                     AiApiKeyItem(
-                                        apiKey = settingsViewModel.customBaseUrl,
+                                        apiKey = currentCustomBaseUrl,
                                         onApiKeySave = { settingsViewModel.onCustomBaseUrlChange(it) },
                                         title = "Base URL",
                                         subtitle = "e.g. https://api.example.com/v1"

@@ -100,7 +100,7 @@ class AiHandler @Inject constructor(
         val client = clientFactory.createClient(provider, apiKey)
         val requestedModel = getModel(provider).ifBlank { client.getDefaultModel() }
 
-        fun callWithModel(model: String): String {
+        suspend fun callWithModel(model: String): String {
             return try {
                 withTimeout(REQUEST_TIMEOUT_MS) {
                     client.generateContent(

@@ -51,7 +51,6 @@ data class PlayerUiState(
     val folderBackGestureNavigationEnabled: Boolean = true,
     val currentSongSortOption: SortOption = SortOption.SongTitleAZ,
     // val songCount: Int = 0, // REMOVED
-    val isGeneratingAiMetadata: Boolean = false,
     val searchHistory: ImmutableList<SearchHistoryItem> = persistentListOf(),
     val searchQuery: String = "",
     val isSyncingLibrary: Boolean = false,

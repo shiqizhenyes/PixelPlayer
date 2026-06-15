@@ -37,7 +37,6 @@ class GeminiAiClient(private val apiKey: String) : AiClient {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
-        encodeDefaults = true
     }
 
     @Serializable
