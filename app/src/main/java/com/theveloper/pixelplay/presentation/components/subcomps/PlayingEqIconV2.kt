@@ -31,14 +31,11 @@ fun PlayingEqIconV2(
 
     val stablePlayerState by stablePlayerStateFlow.collectAsStateWithLifecycle()
 
-    val audioAmplitude by remember(stablePlayerState) {
-        derivedStateOf { stablePlayerState.audioAmplitude }
-    }
-
+    val audioAmplitude = stablePlayerState.audioAmplitude
     // 使用 tween 加快反应速度，使动画紧跟音乐节奏，同时保持一定的平滑过渡
     val animatedAmp by animateFloatAsState(
         targetValue = if (isPlaying) audioAmplitude else 0.1f,
-        animationSpec = tween(durationMillis = 60),
+        animationSpec = tween(durationMillis = 80),
         label = "eq_amplitude"
     )
 
