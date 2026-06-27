@@ -482,9 +482,6 @@ fun AlbumDetailScreen(
                             coverArtUpdate
                         )
                     },
-                    generateAiMetadata = { fields ->
-                        playerViewModel.generateAiMetadata(currentSong, fields)
-                    },
                     removeFromListTrigger = removeFromListTrigger
                 )
                 if (showPlaylistBottomSheet) {

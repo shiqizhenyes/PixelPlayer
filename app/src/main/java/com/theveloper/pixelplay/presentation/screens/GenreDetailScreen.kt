@@ -626,9 +626,6 @@ fun GenreDetailScreen(
                                 coverArtUpdate
                             )
                         },
-                        generateAiMetadata = { fields ->
-                            playerViewModel.generateAiMetadata(song, fields)
-                        },
                         removeFromListTrigger = {}
                     )
                 }
