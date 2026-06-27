@@ -715,7 +715,7 @@ fun SettingsCategoryScreen(
                                     onCheckedChange = { settingsViewModel.setControlsButtonEnabled(!it) },
                                     leadingIcon = {
                                         Icon(
-                                            painterResource(R.drawable.rounded_lyrics_24),
+                                            painterResource(R.drawable.rounded_bottom_panel_close_24),
                                             null,
                                             tint = MaterialTheme.colorScheme.secondary
                                         )
