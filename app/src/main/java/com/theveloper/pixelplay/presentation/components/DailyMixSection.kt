@@ -160,9 +160,6 @@ fun DailyMixSection(
                     coverArtUpdate
                 )
             },
-            generateAiMetadata = { fields ->
-                playerViewModel.generateAiMetadata(song, fields)
-            },
             removeFromListTrigger = {}
         )
 
