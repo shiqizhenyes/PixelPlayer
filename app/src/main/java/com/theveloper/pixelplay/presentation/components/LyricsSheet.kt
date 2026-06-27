@@ -2109,7 +2109,7 @@ private fun LyricsTrackInfo(
             modifier = Modifier
                 .padding(start = 8.dp, end = 18.dp)
                 .size(width = 18.dp, height = 16.dp),
-            color = containerColor,
+            color = contentColor,
             isPlaying = isPlaying,
             stablePlayerStateFlow = stablePlayerStateFlow
         )
